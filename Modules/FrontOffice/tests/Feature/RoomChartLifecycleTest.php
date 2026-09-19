@@ -112,4 +112,75 @@ class RoomChartLifecycleTest extends TestCase
             'status' => ReservationStatus::PENDING->value,
         ]);
     }
+
+    public function test_cancelled_reservation_stays_visible_and_room_can_be_rebooked(): void
+    {
+        $room = Room::factory()->create();
+        $reservation = Reservation::factory()->create([
+            'room_type_id' => $room->room_type_id,
+            'room_id' => $room->id,
+            'arrival_date' => today(),
+            'departure_date' => today()->addDay(),
+            'status' => ReservationStatus::PENDING,
+        ]);
+        $guest = Guest::factory()->create();
+
+        $chart = Livewire::test(RoomChart::class)
+            ->call('openReservationDetail', $reservation->id)
+            ->call('cancelSelectedReservation')
+            ->assertSet('showReservationDetailModal', true)
+            ->assertSee('Cancelled');
+
+        $this->assertSame(ReservationStatus::CANCELLED, $reservation->refresh()->status);
+
+        $chart->call('closeReservationDetail')
+            ->call('openReservationModal', $room->id, today()->toDateString())
+            ->set('guestId', $guest->id)
+            ->call('createReservation');
+
+        $this->assertDatabaseHas('reservations', [
+            'guest_id' => $guest->id,
+            'room_id' => $room->id,
+            'status' => ReservationStatus::PENDING->value,
+        ]);
+
+        $chart->assertSee($reservation->guest->full_name)
+            ->assertSee($guest->full_name);
+    }
+
+    public function test_no_show_reservation_stays_visible_and_room_can_be_rebooked(): void
+    {
+        $room = Room::factory()->create();
+        $reservation = Reservation::factory()->create([
+            'room_type_id' => $room->room_type_id,
+            'room_id' => $room->id,
+            'arrival_date' => today(),
+            'departure_date' => today()->addDay(),
+            'status' => ReservationStatus::CONFIRMED,
+        ]);
+        $guest = Guest::factory()->create();
+
+        $chart = Livewire::test(RoomChart::class)
+            ->call('openReservationDetail', $reservation->id)
+            ->call('markSelectedReservationNoShow')
+            ->assertSet('showReservationDetailModal', true)
+            ->assertSee('No Show');
+
+        $this->assertSame(ReservationStatus::NO_SHOW, $reservation->refresh()->status);
+        $this->assertDatabaseMissing('stays', ['reservation_id' => $reservation->id]);
+
+        $chart->call('closeReservationDetail')
+            ->call('openReservationModal', $room->id, today()->toDateString())
+            ->set('guestId', $guest->id)
+            ->call('createReservation');
+
+        $this->assertDatabaseHas('reservations', [
+            'guest_id' => $guest->id,
+            'room_id' => $room->id,
+            'status' => ReservationStatus::PENDING->value,
+        ]);
+
+        $chart->assertSee($reservation->guest->full_name)
+            ->assertSee($guest->full_name);
+    }
 }

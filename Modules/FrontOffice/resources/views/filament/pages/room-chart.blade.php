@@ -71,6 +71,8 @@
             <span class="inline-flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-sm bg-emerald-400"></span>Confirmed</span>
             <span class="inline-flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-sm bg-sky-400"></span>Checked In</span>
             <span class="inline-flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-sm bg-gray-400"></span>Checked Out</span>
+            <span class="inline-flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-sm bg-gray-200 ring-1 ring-gray-300"></span>Cancelled</span>
+            <span class="inline-flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-sm bg-rose-400"></span>No Show</span>
             <span class="inline-flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-full bg-orange-500"></span>Dirty room</span>
             <span class="inline-flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-full bg-red-500"></span>Maintenance</span>
         </div>
@@ -131,6 +133,9 @@
 
                 {{-- Room rows --}}
                 @foreach ($this->rooms as $room)
+                    @php
+                        $layout = $this->reservationLayout($room);
+                    @endphp
                     {{-- Room info --}}
                     <div
                         class="
@@ -164,6 +169,7 @@
                         style="
                             grid-column: span {{ $days }};
                             display: grid;
+                            min-height: {{ $layout['height'] }}px;
                             grid-template-columns:
                                 repeat({{ $days }}, minmax(120px, 1fr));
                         "
@@ -171,21 +177,13 @@
                         {{-- Empty clickable cells --}}
                         @foreach ($this->dates as $date)
                             @php
-                                $reservation = $room
-                                    ->reservations
-                                    ->first(function ($reservation) use ($date) {
-                                        return $date->gte(
-                                            $reservation->arrival_date
-                                        ) && $date->lt(
-                                            $reservation->departure_date
-                                        );
-                                    });
+                                $blocked = $this->isDateBlocked($room, $date);
                             @endphp
 
                             <button
                                 type="button"
-                                aria-label="{{ $reservation ? 'Reserved' : 'Reserve room '.$room->room_number.' on '.$date->format('d M Y') }}"
-                                @if (! $reservation)
+                                aria-label="{{ $blocked ? 'Reserved' : 'Reserve room '.$room->room_number.' on '.$date->format('d M Y') }}"
+                                @if (! $blocked)
                                     wire:click="
                                         openReservationModal(
                                             {{ $room->id }},
@@ -203,14 +201,14 @@
                                         ? 'bg-cyan-50/60 dark:bg-cyan-950/30'
                                         : '' }}
 
-                                    @if (! $reservation)
+                                    @if (! $blocked)
                                         group hover:bg-cyan-100 focus-visible:bg-cyan-100
                                         dark:hover:bg-cyan-900/40 dark:focus-visible:bg-cyan-900/40
                                     @endif
                                 "
-                                @if ($reservation) disabled @endif
+                                @if ($blocked) disabled @endif
                             >
-                                @if (! $reservation)
+                                @if (! $blocked)
                                     <span class="text-sm text-cyan-600 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 dark:text-cyan-300" aria-hidden="true">
                                         +
                                     </span>
@@ -221,8 +219,7 @@
                         {{-- Reservation bars --}}
                         @foreach ($room->reservations as $reservation)
                             @php
-                                $position =
-                                    $this->reservationPosition($reservation);
+                                $position = $layout['positions'][$reservation->id];
 
                                 $span =
                                     $position['span'];
@@ -237,7 +234,6 @@
                                 "
                                 class="
                                     absolute
-                                    top-3
                                     z-10
                                     overflow-hidden rounded-md
                                     border
@@ -250,6 +246,7 @@
                                     {{ $this->reservationStyle($reservation->status) }}
                                 "
                                 style="
+                                    top: {{ 8 + $position['lane'] * 72 }}px;
                                     left:
                                         calc(
                                             (100% / {{ $days }})
@@ -914,7 +911,7 @@
                             dark:border-gray-800
                         "
                     >
-                        <div class="order-2 sm:order-1">
+                        <div class="order-2 flex flex-wrap gap-2 sm:order-1">
                             @if ($reservation->status === \Modules\FrontOffice\Enums\ReservationStatus::PENDING)
                                 <x-filament::button
                                     wire:click="confirmSelectedReservation"
@@ -941,6 +938,32 @@
                                 >
                                     <span wire:loading.remove wire:target="checkOutSelectedReservation">Check Out</span>
                                     <span wire:loading wire:target="checkOutSelectedReservation">Checking Out...</span>
+                                </x-filament::button>
+                            @endif
+
+                            @if (in_array($reservation->status, [\Modules\FrontOffice\Enums\ReservationStatus::PENDING, \Modules\FrontOffice\Enums\ReservationStatus::CONFIRMED], true))
+                                <x-filament::button
+                                    color="danger"
+                                    wire:click="cancelSelectedReservation"
+                                    wire:confirm="Cancel this reservation? The room inventory for these dates will become available again."
+                                    wire:loading.attr="disabled"
+                                    wire:target="cancelSelectedReservation"
+                                >
+                                    <span wire:loading.remove wire:target="cancelSelectedReservation">Cancel Reservation</span>
+                                    <span wire:loading wire:target="cancelSelectedReservation">Cancelling...</span>
+                                </x-filament::button>
+                            @endif
+
+                            @if ($reservation->status === \Modules\FrontOffice\Enums\ReservationStatus::CONFIRMED)
+                                <x-filament::button
+                                    color="warning"
+                                    wire:click="markSelectedReservationNoShow"
+                                    wire:confirm="Mark this reservation as no-show? No stay will be created."
+                                    wire:loading.attr="disabled"
+                                    wire:target="markSelectedReservationNoShow"
+                                >
+                                    <span wire:loading.remove wire:target="markSelectedReservationNoShow">Mark No Show</span>
+                                    <span wire:loading wire:target="markSelectedReservationNoShow">Marking No Show...</span>
                                 </x-filament::button>
                             @endif
                         </div>

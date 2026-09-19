@@ -3,12 +3,15 @@
 namespace Modules\FrontOffice\Filament\Pages;
 
 use Carbon\CarbonImmutable;
+use Carbon\CarbonInterface;
 use DomainException;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use InvalidArgumentException;
 use Modules\FrontOffice\Actions\Reservations\ConfirmReservation;
+use Modules\FrontOffice\Actions\Reservations\CancelReservation;
 use Modules\FrontOffice\Actions\Reservations\CreateReservation;
+use Modules\FrontOffice\Actions\Reservations\MarkReservationNoShow;
 use Modules\FrontOffice\Actions\Stays\CheckInGuest;
 use Modules\FrontOffice\Actions\Stays\CheckOutGuest;
 use Modules\FrontOffice\Data\CreateReservationData;
@@ -150,6 +153,8 @@ class RoomChart extends Page
                             ReservationStatus::CONFIRMED->value,
                             ReservationStatus::CHECKED_IN->value,
                             ReservationStatus::CHECKED_OUT->value,
+                            ReservationStatus::CANCELLED->value,
+                            ReservationStatus::NO_SHOW->value,
                         ])
                         ->where(
                             'arrival_date',
@@ -190,7 +195,8 @@ class RoomChart extends Page
             ReservationStatus::CONFIRMED => 'border-emerald-400 bg-emerald-100 text-emerald-950 dark:border-emerald-600 dark:bg-emerald-950 dark:text-emerald-100',
             ReservationStatus::CHECKED_IN => 'border-sky-400 bg-sky-100 text-sky-950 dark:border-sky-600 dark:bg-sky-950 dark:text-sky-100',
             ReservationStatus::CHECKED_OUT => 'border-gray-400 bg-gray-100 text-gray-800 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100',
-            default => 'border-gray-400 bg-gray-100 text-gray-800 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100',
+            ReservationStatus::CANCELLED => 'border-gray-300 bg-gray-50 text-gray-500 opacity-75 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400',
+            ReservationStatus::NO_SHOW => 'border-rose-400 bg-rose-100 text-rose-950 dark:border-rose-600 dark:bg-rose-950 dark:text-rose-100',
         };
     }
 
@@ -202,6 +208,19 @@ class RoomChart extends Page
             RoomStatus::DIRTY => 'bg-orange-500',
             RoomStatus::MAINTENANCE => 'bg-red-500',
         };
+    }
+
+    public function isDateBlocked(Room $room, CarbonInterface $date): bool
+    {
+        return $room->reservations->contains(
+            fn (Reservation $reservation): bool => in_array($reservation->status, [
+                ReservationStatus::PENDING,
+                ReservationStatus::CONFIRMED,
+                ReservationStatus::CHECKED_IN,
+            ], true)
+                && $date->greaterThanOrEqualTo($reservation->arrival_date)
+                && $date->lessThan($reservation->departure_date)
+        );
     }
 
     public function getGuestsProperty()
@@ -445,6 +464,31 @@ class RoomChart extends Page
         ];
     }
 
+    public function reservationLayout(Room $room): array
+    {
+        $laneEnds = [];
+        $positions = [];
+
+        foreach ($room->reservations->sortBy('arrival_date') as $reservation) {
+            $lane = 0;
+
+            while (isset($laneEnds[$lane]) && $laneEnds[$lane]->greaterThan($reservation->arrival_date)) {
+                $lane++;
+            }
+
+            $laneEnds[$lane] = $reservation->departure_date;
+            $positions[$reservation->id] = [
+                ...$this->reservationPosition($reservation),
+                'lane' => $lane,
+            ];
+        }
+
+        return [
+            'positions' => $positions,
+            'height' => max(80, count($laneEnds) * 72 + 8),
+        ];
+    }
+
     public function openReservationDetail(int $reservationId): void
     {
         $this->selectedReservationId = $reservationId;
@@ -551,6 +595,54 @@ class RoomChart extends Page
         } catch (DomainException | InvalidArgumentException $exception) {
             Notification::make()
                 ->title('Unable to check out guest')
+                ->body($exception->getMessage())
+                ->danger()
+                ->send();
+        }
+    }
+
+    public function cancelSelectedReservation(): void
+    {
+        $reservation = $this->selectedReservation;
+
+        if ($reservation === null) {
+            return;
+        }
+
+        try {
+            app(CancelReservation::class)->execute($reservation);
+
+            Notification::make()
+                ->title('Reservation cancelled')
+                ->success()
+                ->send();
+        } catch (DomainException | InvalidArgumentException $exception) {
+            Notification::make()
+                ->title('Unable to cancel reservation')
+                ->body($exception->getMessage())
+                ->danger()
+                ->send();
+        }
+    }
+
+    public function markSelectedReservationNoShow(): void
+    {
+        $reservation = $this->selectedReservation;
+
+        if ($reservation === null) {
+            return;
+        }
+
+        try {
+            app(MarkReservationNoShow::class)->execute($reservation);
+
+            Notification::make()
+                ->title('Reservation marked no-show')
+                ->success()
+                ->send();
+        } catch (DomainException | InvalidArgumentException $exception) {
+            Notification::make()
+                ->title('Unable to mark no-show')
                 ->body($exception->getMessage())
                 ->danger()
                 ->send();
