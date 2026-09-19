@@ -13,6 +13,11 @@ class CreateReservation extends CreateRecord
 {
     protected static string $resource = ReservationResource::class;
 
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResourceUrl('index');
+    }
+
     protected function handleRecordCreation(array $data): Model
     {
         $payload = new CreateReservationData(

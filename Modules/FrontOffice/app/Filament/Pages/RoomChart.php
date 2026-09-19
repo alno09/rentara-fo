@@ -135,6 +135,12 @@ class RoomChart extends Page
         $this->startDate = now()->toDateString();
     }
 
+    public function clearFilters(): void
+    {
+        $this->roomTypeFilter = null;
+        $this->floorFilter = null;
+    }
+
     /*
     |--------------------------------------------------------------------------
     | Computed Data
@@ -210,28 +216,6 @@ class RoomChart extends Page
             ->orderBy('floor')
             ->pluck('floor')
             ->all();
-    }
-
-    public function reservationStyle(ReservationStatus $status): string
-    {
-        return match ($status) {
-            ReservationStatus::PENDING => 'border-amber-400 bg-amber-100 text-amber-950 dark:border-amber-600 dark:bg-amber-950 dark:text-amber-100',
-            ReservationStatus::CONFIRMED => 'border-emerald-400 bg-emerald-100 text-emerald-950 dark:border-emerald-600 dark:bg-emerald-950 dark:text-emerald-100',
-            ReservationStatus::CHECKED_IN => 'border-sky-400 bg-sky-100 text-sky-950 dark:border-sky-600 dark:bg-sky-950 dark:text-sky-100',
-            ReservationStatus::CHECKED_OUT => 'border-gray-400 bg-gray-100 text-gray-800 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100',
-            ReservationStatus::CANCELLED => 'border-gray-300 bg-gray-50 text-gray-500 opacity-75 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400',
-            ReservationStatus::NO_SHOW => 'border-rose-400 bg-rose-100 text-rose-950 dark:border-rose-600 dark:bg-rose-950 dark:text-rose-100',
-        };
-    }
-
-    public function roomStatusStyle(RoomStatus $status): string
-    {
-        return match ($status) {
-            RoomStatus::AVAILABLE => 'bg-emerald-500',
-            RoomStatus::OCCUPIED => 'bg-sky-500',
-            RoomStatus::DIRTY => 'bg-orange-500',
-            RoomStatus::MAINTENANCE => 'bg-red-500',
-        };
     }
 
     public function isDateBlocked(Room $room, CarbonInterface $date): bool

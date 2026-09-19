@@ -8,4 +8,9 @@ use Modules\FrontOffice\Filament\Resources\Rooms\RoomResource;
 class CreateRoom extends CreateRecord
 {
     protected static string $resource = RoomResource::class;
+
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResourceUrl('index');
+    }
 }

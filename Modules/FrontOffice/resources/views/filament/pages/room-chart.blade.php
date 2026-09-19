@@ -1,21 +1,102 @@
 <x-filament-panels::page>
+    <style>
+        .rc-shell { --rc-surface: #fff; --rc-subtle: #f7f9f9; --rc-line: #dce3e4; --rc-text: #17272b; --rc-muted: #53656a; --rc-today: #e9f5f4; --rc-hover: #e7f3f1; color: var(--rc-text); }
+        .dark .rc-shell { --rc-surface: #172226; --rc-subtle: #202d31; --rc-line: #354449; --rc-text: #f1f5f4; --rc-muted: #b5c3c5; --rc-today: #183d3d; --rc-hover: #214946; }
+        .rc-toolbar { display: flex; flex-wrap: wrap; align-items: end; gap: .75rem 1rem; }
+        .rc-range { min-width: 9rem; font-size: .875rem; font-weight: 600; line-height: 1.25; }
+        .rc-range small { display: block; color: var(--rc-muted); font-size: .7rem; font-weight: 500; text-transform: uppercase; }
+        .rc-filters { display: flex; flex-wrap: wrap; align-items: end; gap: .5rem; margin-left: auto; }
+        .rc-filter label { display: block; margin-bottom: .2rem; color: var(--rc-muted); font-size: .7rem; font-weight: 600; }
+        .rc-filter select { min-width: 8rem; height: 2.25rem; padding: 0 .75rem; border: 1px solid var(--rc-line); border-radius: .3rem; background: var(--rc-surface); color: var(--rc-text); font-size: .8rem; }
+        .rc-legend { display: flex; flex-wrap: wrap; gap: .35rem 1rem; color: var(--rc-muted); font-size: .72rem; }
+        .rc-legend span { display: inline-flex; align-items: center; gap: .35rem; white-space: nowrap; }
+        .rc-legend i { display: inline-block; width: .55rem; height: .55rem; border-radius: .15rem; background: var(--status-accent); }
+        .rc-viewport { max-height: 72vh; overflow: auto; border: 1px solid var(--rc-line); border-radius: .35rem; background: var(--rc-surface); }
+        .rc-grid { display: grid; width: 100%; }
+        .rc-corner, .rc-date { position: sticky; top: 0; z-index: 30; min-height: 3.25rem; padding: .55rem .7rem; border-right: 1px solid var(--rc-line); border-bottom: 1px solid var(--rc-line); background: var(--rc-subtle); }
+        .rc-corner { left: 0; z-index: 40; display: flex; align-items: center; font-size: .75rem; font-weight: 700; text-transform: uppercase; color: var(--rc-muted); }
+        .rc-date { text-align: center; line-height: 1.2; }
+        .rc-date strong { display: block; font-size: .75rem; }
+        .rc-date small { color: var(--rc-muted); font-size: .7rem; }
+        .rc-date[data-today="true"] { background: var(--rc-today); box-shadow: inset 0 3px #0d9488; }
+        .rc-room { position: sticky; left: 0; z-index: 20; min-height: 5rem; padding: .7rem; border-right: 1px solid var(--rc-line); border-bottom: 1px solid var(--rc-line); background: var(--rc-surface); }
+        .rc-room strong { font-size: .95rem; }
+        .rc-room small { display: block; color: var(--rc-muted); font-size: .72rem; }
+        .rc-room-status { display: inline-flex; align-items: center; gap: .3rem; color: var(--rc-muted); font-size: .68rem; }
+        .rc-room-status::before { content: ''; width: .5rem; height: .5rem; border-radius: 50%; background: var(--room-accent); }
+        .rc-timeline { position: relative; display: grid; border-bottom: 1px solid var(--rc-line); }
+        .rc-cell { min-height: 5rem; border-right: 1px solid var(--rc-line); background: transparent; text-align: center; }
+        .rc-cell[data-today="true"] { background: var(--rc-today); }
+        .rc-cell:not(:disabled) { cursor: pointer; }
+        .rc-cell:not(:disabled):hover, .rc-cell:not(:disabled):focus-visible { background: var(--rc-hover); outline: 2px solid #0d9488; outline-offset: -2px; }
+        .rc-cell span { color: #0f766e; font-size: .8rem; font-weight: 600; opacity: 0; }
+        .rc-cell:hover span, .rc-cell:focus-visible span { opacity: 1; }
+        .rc-bar { position: absolute; z-index: 10; overflow: hidden; padding: .42rem .55rem; border: 1px solid var(--status-accent); border-left-width: 4px; border-radius: .25rem; background: var(--status-surface); color: var(--status-text); text-align: left; cursor: pointer; box-shadow: 0 1px 2px #00000014; transition: box-shadow .15s, transform .15s; }
+        .rc-bar:hover, .rc-bar:focus-visible { box-shadow: 0 3px 9px #00000025; transform: translateY(-1px); outline: 2px solid var(--status-accent); outline-offset: 1px; }
+        .rc-bar strong, .rc-bar small { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+        .rc-bar strong { font-size: .74rem; }
+        .rc-bar small { font-size: .68rem; }
+        .rc-bar:is([data-status="cancelled"], [data-status="no_show"]) { opacity: .78; }
+        .rc-status { display: inline-flex; align-items: center; gap: .3rem; padding: .2rem .5rem; border: 1px solid var(--status-accent); border-radius: .25rem; background: var(--status-surface); color: var(--status-text); font-size: .7rem; font-weight: 700; white-space: nowrap; }
+        .rc-shell [data-status="pending"] { --status-accent: #b7791f; --status-surface: #fff7e6; --status-text: #704307; }
+        .rc-shell [data-status="confirmed"] { --status-accent: #15835b; --status-surface: #eaf8f0; --status-text: #145c43; }
+        .rc-shell [data-status="checked_in"] { --status-accent: #177ca5; --status-surface: #e8f5fa; --status-text: #145875; }
+        .rc-shell [data-status="checked_out"] { --status-accent: #71818a; --status-surface: #f0f3f4; --status-text: #42545c; }
+        .rc-shell [data-status="cancelled"] { --status-accent: #8c969b; --status-surface: #f4f5f5; --status-text: #58676e; }
+        .rc-shell [data-status="no_show"] { --status-accent: #bb5a70; --status-surface: #fbeef1; --status-text: #7b3447; }
+        .dark .rc-shell [data-status="pending"] { --status-surface: #453518; --status-text: #ffe6aa; }
+        .dark .rc-shell [data-status="confirmed"] { --status-surface: #163f34; --status-text: #b5f3d0; }
+        .dark .rc-shell [data-status="checked_in"] { --status-surface: #193d50; --status-text: #bde9f8; }
+        .dark .rc-shell [data-status="checked_out"] { --status-surface: #303d43; --status-text: #d8e2e5; }
+        .dark .rc-shell [data-status="cancelled"] { --status-surface: #2b3438; --status-text: #c5d0d3; }
+        .dark .rc-shell [data-status="no_show"] { --status-surface: #4d2935; --status-text: #fbd1da; }
+        .rc-shell [data-room-status="available"] { --room-accent: #159267; }
+        .rc-shell [data-room-status="occupied"] { --room-accent: #1888ad; }
+        .rc-shell [data-room-status="dirty"] { --room-accent: #d0782d; }
+        .rc-shell [data-room-status="maintenance"] { --room-accent: #ca5362; }
+        .rc-legend i[data-room-status] { background: var(--room-accent); border-radius: 50%; }
+        .rc-empty { grid-column: 1 / -1; padding: 2rem; text-align: center; color: var(--rc-muted); }
+        .rc-empty strong { display: block; margin-bottom: .25rem; color: var(--rc-text); font-size: .9rem; }
+        .rc-dialog { width: min(100%, 40rem); max-height: 90vh; overflow-y: auto; border-radius: .4rem; background: var(--rc-surface); color: var(--rc-text); box-shadow: 0 16px 48px #0004; }
+        .rc-dialog-header { padding: 1rem 1.25rem; border-bottom: 1px solid var(--rc-line); background: var(--rc-subtle); }
+        .rc-dialog-body { padding: 1.25rem; }
+        .rc-dialog-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .65rem; padding-top: 1rem; border-top: 1px solid var(--rc-line); }
+        .rc-dialog label { display: block; margin-bottom: .3rem; font-size: .75rem; font-weight: 600; color: var(--rc-muted); }
+        .rc-dialog :is(select, input, textarea) { width: 100%; border: 1px solid var(--rc-line); border-radius: .3rem; background: var(--rc-surface); color: var(--rc-text); }
+        .rc-dialog :is(select, input) { min-height: 2.4rem; }
+        .rc-dialog :is(select, input, textarea):focus { border-color: #0d9488; outline: 2px solid #0d948866; }
+        .rc-dialog .rc-close { min-width: 2rem; min-height: 2rem; border-radius: .25rem; color: var(--rc-muted); font-size: 1.3rem; }
+        .rc-dialog .rc-close:hover { background: var(--rc-hover); color: var(--rc-text); }
+        .rc-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+        .rc-modal-form { display: grid; gap: 1rem; }
+        .rc-detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem 1rem; font-size: .82rem; }
+        .rc-detail-grid dt { color: var(--rc-muted); font-size: .72rem; }
+        .rc-detail-grid dd { margin-top: .2rem; font-weight: 600; overflow-wrap: anywhere; }
+        .rc-detail-grid > div > div:first-child { color: var(--rc-muted); font-size: .72rem; }
+        .rc-detail-grid > div > div:last-child { margin-top: .2rem; font-weight: 600; overflow-wrap: anywhere; }
+        @media (max-width: 640px) { .rc-filters { width: 100%; margin-left: 0; } .rc-filter { flex: 1 1 8rem; } .rc-filter select { width: 100%; } .rc-dialog-body { padding: 1rem; } .rc-form-grid { grid-template-columns: 1fr; } }
+    </style>
     @php
         $today = today()->toDateString();
+        $rooms = $this->rooms;
+        $hasReservations = $rooms->contains(fn ($room) => $room->reservations->isNotEmpty());
     @endphp
-    <div class="space-y-4">
+    <div class="rc-shell space-y-4">
 
         {{-- Toolbar --}}
-        <div class="flex flex-wrap items-center gap-3">
+        <div class="rc-toolbar">
             <div class="flex shrink-0 items-center gap-2">
                 <x-filament::button
                     color="gray"
+                    icon="heroicon-m-chevron-left"
                     wire:click="previousPeriod"
+                    tooltip="Previous period"
                 >
                     Previous
                 </x-filament::button>
 
                 <x-filament::button
-                    color="gray"
+                    color="primary"
                     wire:click="goToToday"
                 >
                     Today
@@ -23,13 +104,17 @@
 
                 <x-filament::button
                     color="gray"
+                    icon="heroicon-m-chevron-right"
+                    icon-position="after"
                     wire:click="nextPeriod"
+                    tooltip="Next period"
                 >
                     Next
                 </x-filament::button>
             </div>
 
-            <div class="min-w-36 text-sm font-medium text-gray-600 dark:text-gray-300">
+            <div class="rc-range">
+                <small>Visible dates</small>
                 {{ \Carbon\Carbon::parse($startDate)->format('d M Y') }}
                 —
                 {{
@@ -39,139 +124,99 @@
                 }}
             </div>
 
-            <div class="flex flex-wrap items-center gap-2 sm:ml-auto">
-                <label for="room-type-filter" class="sr-only">Room Type</label>
+            <div class="rc-filters">
+                <div class="rc-filter">
+                <label for="room-type-filter">Room Type</label>
                 <select
                     id="room-type-filter"
                     wire:model.live="roomTypeFilter"
-                    class="min-w-40 rounded-md border-gray-300 bg-white text-sm dark:border-gray-700 dark:bg-gray-900"
                 >
                     <option value="">All Room Types</option>
                     @foreach ($this->roomTypes as $roomType)
                         <option value="{{ $roomType->id }}">{{ $roomType->name }}</option>
                     @endforeach
                 </select>
+                </div>
 
-                <label for="floor-filter" class="sr-only">Floor</label>
+                <div class="rc-filter">
+                <label for="floor-filter">Floor</label>
                 <select
                     id="floor-filter"
                     wire:model.live="floorFilter"
-                    class="min-w-28 rounded-md border-gray-300 bg-white text-sm dark:border-gray-700 dark:bg-gray-900"
                 >
                     <option value="">All Floors</option>
                     @foreach ($this->floors as $floor)
                         <option value="{{ $floor }}">Floor {{ $floor }}</option>
                     @endforeach
                 </select>
+                </div>
             </div>
         </div>
 
-        <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-gray-600 dark:text-gray-300" aria-label="Status legend">
-            <span class="inline-flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-sm bg-amber-400"></span>Pending</span>
-            <span class="inline-flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-sm bg-emerald-400"></span>Confirmed</span>
-            <span class="inline-flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-sm bg-sky-400"></span>Checked In</span>
-            <span class="inline-flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-sm bg-gray-400"></span>Checked Out</span>
-            <span class="inline-flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-sm bg-gray-200 ring-1 ring-gray-300"></span>Cancelled</span>
-            <span class="inline-flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-sm bg-rose-400"></span>No Show</span>
-            <span class="inline-flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-full bg-orange-500"></span>Dirty room</span>
-            <span class="inline-flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-full bg-red-500"></span>Maintenance</span>
+        <div class="rc-legend" aria-label="Status legend">
+            <span><i data-status="pending" aria-hidden="true"></i>Pending</span>
+            <span><i data-status="confirmed" aria-hidden="true"></i>Confirmed</span>
+            <span><i data-status="checked_in" aria-hidden="true"></i>Checked In</span>
+            <span><i data-status="checked_out" aria-hidden="true"></i>Checked Out</span>
+            <span><i data-status="cancelled" aria-hidden="true"></i>Cancelled</span>
+            <span><i data-status="no_show" aria-hidden="true"></i>No Show</span>
+            <span><i data-room-status="dirty" aria-hidden="true"></i>Dirty</span>
+            <span><i data-room-status="maintenance" aria-hidden="true"></i>Maintenance</span>
         </div>
 
+        @if ($rooms->isNotEmpty() && ! $hasReservations)
+            <p class="text-xs" style="color: var(--rc-muted);">No reservations in this period.</p>
+        @endif
+
         {{-- Room Chart --}}
-        <div class="overflow-auto rounded-md border border-gray-200 dark:border-gray-800" style="max-height: 72vh;">
+        <div class="rc-viewport" data-testid="room-chart-viewport">
             <div
-                class="min-w-max"
+                class="rc-grid"
                 style="
-                    display: grid;
+                    min-width: {{ 164 + $days * 118 }}px;
                     grid-template-columns:
-                        180px
-                        repeat({{ $days }}, minmax(120px, 1fr));
+                        164px
+                        repeat({{ $days }}, minmax(118px, 1fr));
                 "
             >
                 {{-- Header: Room column --}}
-                <div
-                    class="
-                        sticky top-0 left-0 z-40
-                        border-b
-                        border-r
-                        border-gray-200
-                        bg-gray-50
-                        p-3
-                        font-semibold
-                        dark:border-gray-800
-                        dark:bg-gray-900
-                    "
-                >
+                <div class="rc-corner">
                     Room
                 </div>
 
                 {{-- Header: Dates --}}
                 @foreach ($this->dates as $date)
-                    <div
-                        class="
-                            sticky top-0 z-30
-                            border-b
-                            border-r
-                            border-gray-200
-                            p-3
-                            text-center
-                            dark:border-gray-800
-                            {{ $date->toDateString() === $today
-                                ? 'bg-cyan-100 dark:bg-cyan-950'
-                                : 'bg-gray-50 dark:bg-gray-900' }}
-                        "
-                    >
-                        <div class="font-semibold">
+                    <div class="rc-date" data-today="{{ $date->toDateString() === $today ? 'true' : 'false' }}">
+                        <strong>
                             {{ $date->format('D') }}
-                        </div>
+                        </strong>
 
-                        <div class="text-sm text-gray-500 dark:text-gray-400">
+                        <small>
                             {{ $date->format('d M') }}
-                        </div>
+                        </small>
                     </div>
                 @endforeach
 
                 {{-- Room rows --}}
-                @foreach ($this->rooms as $room)
+                @forelse ($rooms as $room)
                     @php
                         $layout = $this->reservationLayout($room);
                     @endphp
                     {{-- Room info --}}
-                    <div
-                        class="
-                            sticky left-0 z-20
-                            border-b
-                            border-r
-                            border-gray-200
-                            bg-white
-                            p-3
-                            dark:border-gray-800
-                            dark:bg-gray-950
-                        "
-                    >
-                        <div class="flex items-center gap-2 font-semibold">
-                            <span class="h-2.5 w-2.5 shrink-0 rounded-full {{ $this->roomStatusStyle($room->status) }}" aria-hidden="true"></span>
-                            <span>{{ $room->room_number }}</span>
-                        </div>
-
-                        <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                            {{ $room->roomType->name }} · {{ ucfirst($room->status->value) }}
-                        </div>
-
-                        <div class="mt-1 text-xs text-gray-400">
-                            Floor {{ $room->floor ?? '-' }}
-                        </div>
+                    <div class="rc-room">
+                        <strong>{{ $room->room_number }}</strong>
+                        <small>{{ $room->roomType->name }} · Floor {{ $room->floor ?? '-' }}</small>
+                        <span class="rc-room-status" data-room-status="{{ $room->status->value }}">{{ ucfirst($room->status->value) }}</span>
                     </div>
 
                     {{-- Timeline area --}}
                     <div
-                        class="relative border-b border-gray-200 dark:border-gray-800"
+                        class="rc-timeline"
                         style="
                             grid-column: span {{ $days }};
-                            display: grid;
                             min-height: {{ $layout['height'] }}px;
                             grid-template-columns:
-                                repeat({{ $days }}, minmax(120px, 1fr));
+                                repeat({{ $days }}, minmax(118px, 1fr));
                         "
                     >
                         {{-- Empty clickable cells --}}
@@ -182,6 +227,8 @@
 
                             <button
                                 type="button"
+                                class="rc-cell"
+                                data-today="{{ $date->toDateString() === $today ? 'true' : 'false' }}"
                                 aria-label="{{ $blocked ? 'Reserved' : 'Reserve room '.$room->room_number.' on '.$date->format('d M Y') }}"
                                 @if (! $blocked)
                                     wire:click="
@@ -191,27 +238,10 @@
                                         )
                                     "
                                 @endif
-                                class="
-                                    min-h-20
-                                    border-r
-                                    border-gray-200
-                                    transition-colors
-                                    dark:border-gray-800
-                                    {{ $date->toDateString() === $today
-                                        ? 'bg-cyan-50/60 dark:bg-cyan-950/30'
-                                        : '' }}
-
-                                    @if (! $blocked)
-                                        group hover:bg-cyan-100 focus-visible:bg-cyan-100
-                                        dark:hover:bg-cyan-900/40 dark:focus-visible:bg-cyan-900/40
-                                    @endif
-                                "
                                 @if ($blocked) disabled @endif
                             >
                                 @if (! $blocked)
-                                    <span class="text-sm text-cyan-600 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 dark:text-cyan-300" aria-hidden="true">
-                                        +
-                                    </span>
+                                    <span aria-hidden="true">+ Book</span>
                                 @endif
                             </button>
                         @endforeach
@@ -227,23 +257,13 @@
 
                             <button
                                 type="button"
+                                class="rc-bar"
+                                data-status="{{ $reservation->status->value }}"
+                                title="{{ $reservation->guest->full_name }} · {{ $reservation->reservation_number }}"
                                 wire:click="
                                     openReservationDetail(
                                         {{ $reservation->id }}
                                     )
-                                "
-                                class="
-                                    absolute
-                                    z-10
-                                    overflow-hidden rounded-md
-                                    border
-                                    px-3
-                                    py-2
-                                    text-left
-                                    text-xs
-                                    shadow-sm
-                                    hover:shadow-md
-                                    {{ $this->reservationStyle($reservation->status) }}
                                 "
                                 style="
                                     top: {{ 8 + $position['lane'] * 72 }}px;
@@ -262,11 +282,11 @@
                                     margin-left: 4px;
                                 "
                             >
-                                <div class="truncate font-semibold">
+                                <strong>
                                     {{ $reservation->guest->full_name }}
-                                </div>
+                                </strong>
 
-                                <div class="mt-1 truncate font-medium">
+                                <small>
                                     {{
                                         ucfirst(
                                             str_replace(
@@ -276,16 +296,26 @@
                                             )
                                         )
                                     }}
-                                </div>
+                                </small>
                                 @if ($span > 1)
-                                    <div class="mt-0.5 truncate opacity-75">
+                                    <small style="opacity: .76;">
                                         {{ $reservation->reservation_number }}
-                                    </div>
+                                    </small>
                                 @endif
                             </button>
                         @endforeach
                     </div>
-                @endforeach
+                @empty
+                    <div class="rc-empty">
+                        @if ($roomTypeFilter !== null || $floorFilter !== null)
+                            <strong>No rooms match these filters</strong>
+                            <x-filament::button color="gray" wire:click="clearFilters">Clear filters</x-filament::button>
+                        @else
+                            <strong>No rooms yet</strong>
+                            <span>Rooms will appear here once added.</span>
+                        @endif
+                    </div>
+                @endforelse
             </div>
         </div>
 
@@ -303,27 +333,9 @@
                     p-4
                 "
             >
-                <div
-                    class="
-                        w-full
-                        max-w-2xl
-                        overflow-hidden
-                        rounded-2xl
-                        bg-white
-                        shadow-2xl
-                        dark:bg-gray-900
-                    "
-                >
+                <div class="rc-dialog">
                     {{-- Header --}}
-                    <div
-                        class="
-                            border-b
-                            border-gray-200
-                            px-6
-                            py-5
-                            dark:border-gray-800
-                        "
-                    >
+                    <div class="rc-dialog-header">
                         <div
                             class="
                                 flex
@@ -338,20 +350,8 @@
                                 </h2>
 
                                 @if ($this->selectedRoom)
-                                    <p
-                                        class="
-                                            mt-1
-                                            text-sm
-                                            text-gray-500
-                                            dark:text-gray-400
-                                        "
-                                    >
-                                        Room
-                                        {{ $this->selectedRoom->room_number }}
-
-                                        ·
-
-                                        {{ $this->selectedRoom->roomType->name }}
+                                    <p class="mt-1 text-sm" style="color: var(--rc-muted);">
+                                        Room {{ $this->selectedRoom->room_number }} · {{ $this->selectedRoom->roomType->name }}
                                     </p>
                                 @endif
                             </div>
@@ -359,15 +359,10 @@
                             <button
                                 type="button"
                                 wire:click="closeReservationModal"
-                                class="
-                                    rounded-lg
-                                    p-2
-                                    text-gray-500
-                                    hover:bg-gray-100
-                                    dark:hover:bg-gray-800
-                                "
+                                aria-label="Close new reservation"
+                                class="rc-close"
                             >
-                                ✕
+                                &times;
                             </button>
                         </div>
                     </div>
@@ -375,7 +370,7 @@
                     {{-- Form --}}
                     <form
                         wire:submit="createReservation"
-                        class="space-y-6 p-6"
+                        class="rc-dialog-body rc-modal-form"
                     >
                         {{-- Guest --}}
                         <div>
@@ -424,14 +419,7 @@
                         </div>
 
                         {{-- Dates --}}
-                        <div
-                            class="
-                                grid
-                                grid-cols-1
-                                gap-4
-                                md:grid-cols-2
-                            "
-                        >
+                        <div class="rc-form-grid">
                             <div>
                                 <label
                                     class="
@@ -496,14 +484,7 @@
                         </div>
 
                         {{-- Guests --}}
-                        <div
-                            class="
-                                grid
-                                grid-cols-1
-                                gap-4
-                                md:grid-cols-2
-                            "
-                        >
+                        <div class="rc-form-grid">
                             <div>
                                 <label
                                     class="
@@ -558,14 +539,7 @@
                         </div>
 
                         {{-- Rate & source --}}
-                        <div
-                            class="
-                                grid
-                                grid-cols-1
-                                gap-4
-                                md:grid-cols-2
-                            "
-                        >
+                        <div class="rc-form-grid">
                             <div>
                                 <label
                                     class="
@@ -575,7 +549,7 @@
                                         font-medium
                                     "
                                 >
-                                    Nightly Rate
+                                    Nightly Rate (Rp)
                                 </label>
 
                                 <input
@@ -675,17 +649,7 @@
                         </div>
 
                         {{-- Actions --}}
-                        <div
-                            class="
-                                flex
-                                justify-end
-                                gap-3
-                                border-t
-                                border-gray-200
-                                pt-5
-                                dark:border-gray-800
-                            "
-                        >
+                        <div class="rc-dialog-footer" style="justify-content: flex-end;">
                             <x-filament::button
                                 type="button"
                                 color="gray"
@@ -739,19 +703,9 @@
                     p-4
                 "
             >
-                <div
-                    class="
-                        w-full
-                        max-w-lg
-                        rounded-2xl
-                        bg-white
-                        p-6
-                        shadow-2xl
-                        dark:bg-gray-900
-                    "
-                >
+                <div class="rc-dialog">
                     <div
-                        class="
+                        class="rc-dialog-header
                             flex
                             items-start
                             justify-between
@@ -764,40 +718,29 @@
                             </h2>
 
                             <p
-                                class="
-                                    mt-1
-                                    text-sm
-                                    text-gray-500
-                                    dark:text-gray-400
-                                "
+                                class="mt-1 text-sm"
+                                style="color: var(--rc-muted);"
                             >
                                 {{ $reservation->reservation_number }}
                             </p>
+                            <span class="rc-status mt-2" data-status="{{ $reservation->status->value }}">
+                                {{ ucwords(str_replace('_', ' ', $reservation->status->value)) }}
+                            </span>
                         </div>
 
                         <button
                             type="button"
                             wire:click="closeReservationDetail"
-                            class="
-                                rounded-lg
-                                p-2
-                                text-gray-500
-                                hover:bg-gray-100
-                                dark:hover:bg-gray-800
-                            "
+                            class="rc-close"
+                            aria-label="Close reservation detail"
                         >
-                            ✕
+                            &times;
                         </button>
                     </div>
 
-                    <div class="mt-6 space-y-5">
+                    <div class="rc-dialog-body space-y-5">
                         <div
-                            class="
-                                grid
-                                grid-cols-2
-                                gap-4
-                                text-sm
-                            "
+                            class="rc-detail-grid"
                         >
                             <div>
                                 <div class="text-gray-500">
@@ -852,16 +795,6 @@
 
                             <div>
                                 <div class="text-gray-500">
-                                    Status
-                                </div>
-
-                                <span class="mt-1 inline-flex rounded-sm border px-2 py-0.5 text-xs font-semibold {{ $this->reservationStyle($reservation->status) }}">
-                                    {{ ucwords(str_replace('_', ' ', $reservation->status->value)) }}
-                                </span>
-                            </div>
-
-                            <div>
-                                <div class="text-gray-500">
                                     Nightly Rate
                                 </div>
 
@@ -877,6 +810,20 @@
                                     }}
                                 </div>
                             </div>
+                            <div>
+                                <div class="text-gray-500">Nights</div>
+                                <div class="font-medium">{{ (int) $reservation->arrival_date->diffInDays($reservation->departure_date) }}</div>
+                            </div>
+                            <div>
+                                <div class="text-gray-500">Guests</div>
+                                <div class="font-medium">{{ $reservation->adult_count }} adults · {{ $reservation->child_count }} children</div>
+                            </div>
+                            @if ($reservation->source)
+                                <div>
+                                    <div class="text-gray-500">Source</div>
+                                    <div class="font-medium">{{ ucwords(str_replace('_', ' ', $reservation->source)) }}</div>
+                                </div>
+                            @endif
                         </div>
 
                         @if ($reservation->notes)
@@ -895,22 +842,7 @@
                                 </div>
                             </div>
                         @endif
-                    </div>
-
-                    <div
-                        class="
-                            mt-6
-                            flex
-                            flex-wrap
-                            items-center
-                            justify-between
-                            gap-3
-                            border-t
-                            border-gray-200
-                            pt-4
-                            dark:border-gray-800
-                        "
-                    >
+                        <div class="rc-dialog-footer">
                         <div class="order-2 flex flex-wrap gap-2 sm:order-1">
                             @if (in_array($reservation->status, [\Modules\FrontOffice\Enums\ReservationStatus::PENDING, \Modules\FrontOffice\Enums\ReservationStatus::CONFIRMED], true))
                                 <x-filament::button
@@ -953,6 +885,7 @@
                             @if (in_array($reservation->status, [\Modules\FrontOffice\Enums\ReservationStatus::PENDING, \Modules\FrontOffice\Enums\ReservationStatus::CONFIRMED], true))
                                 <x-filament::button
                                     color="danger"
+                                    outlined
                                     wire:click="cancelSelectedReservation"
                                     wire:confirm="Cancel this reservation? The room inventory for these dates will become available again."
                                     wire:loading.attr="disabled"
@@ -966,6 +899,7 @@
                             @if ($reservation->status === \Modules\FrontOffice\Enums\ReservationStatus::CONFIRMED)
                                 <x-filament::button
                                     color="warning"
+                                    outlined
                                     wire:click="markSelectedReservationNoShow"
                                     wire:confirm="Mark this reservation as no-show? No stay will be created."
                                     wire:loading.attr="disabled"
@@ -984,6 +918,7 @@
                         >
                             Close
                         </x-filament::button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -991,13 +926,13 @@
 
         @if ($showEditReservationModal)
             <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-                <div class="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-md bg-white shadow-2xl dark:bg-gray-900">
-                    <div class="flex items-center justify-between border-b border-gray-200 px-6 py-4 dark:border-gray-800">
+                <div class="rc-dialog" style="width: min(100%, 42rem);">
+                    <div class="rc-dialog-header flex items-center justify-between">
                         <h2 class="text-lg font-semibold">Edit Reservation</h2>
-                        <button type="button" wire:click="closeEditReservationModal" aria-label="Close edit reservation" class="text-gray-500 hover:text-gray-900 dark:hover:text-white">&times;</button>
+                        <button type="button" wire:click="closeEditReservationModal" aria-label="Close edit reservation" class="rc-close">&times;</button>
                     </div>
 
-                    <form wire:submit="updateSelectedReservation" class="space-y-5 p-6">
+                    <form wire:submit="updateSelectedReservation" class="rc-dialog-body space-y-5">
                         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <div>
                                 <label for="edit-guest" class="mb-1 block text-sm font-medium">Guest</label>
