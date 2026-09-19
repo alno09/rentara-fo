@@ -33,10 +33,26 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
+            ->discoverResources(
+                in: base_path('Modules/FrontOffice/app/Filament/Resources'),
+                for: 'Modules\\FrontOffice\\Filament\\Resources'
+            )
+            ->discoverResources(
+                in: base_path('Modules/Billing/app/Filament/Resources'),
+                for: 'Modules\\Billing\\Filament\\Resources'
+            )
             ->pages([
                 Dashboard::class,
             ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
+            ->discoverWidgets(
+                in: base_path('Modules/FrontOffice/app/Filament/Widgets'),
+                for: 'Modules\\FrontOffice\\Filament\\Widgets'
+            )
+            ->discoverWidgets(
+                in: base_path('Modules/Billing/app/Filament/Widgets'),
+                for: 'Modules\\Billing\\Filament\\Widgets'
+            )
             ->widgets([
                 AccountWidget::class,
                 FilamentInfoWidget::class,
