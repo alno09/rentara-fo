@@ -4,9 +4,18 @@ namespace Modules\FrontOffice\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Modules\FrontOffice\Database\Factories\RoomTypeFactory;
 
 class RoomType extends Model
 {
+    use HasFactory;
+
+    protected static function newFactory(): RoomTypeFactory
+    {
+        return RoomTypeFactory::new();
+    }
+    
     protected $fillable = [
         'name',
         'code',

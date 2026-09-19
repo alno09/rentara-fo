@@ -6,9 +6,18 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Modules\FrontOffice\Enums\RoomStatus;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Modules\FrontOffice\Database\Factories\RoomFactory;
 
 class Room extends Model
 {
+    use HasFactory;
+
+    protected static function newFactory(): RoomFactory
+    {
+        return RoomFactory::new();
+    }
+    
     protected $fillable = [
         'room_type_id',
         'room_number',

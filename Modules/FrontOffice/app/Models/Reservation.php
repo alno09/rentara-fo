@@ -2,13 +2,22 @@
 
 namespace Modules\FrontOffice\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Modules\FrontOffice\Database\Factories\ReservationFactory;
 use Modules\FrontOffice\Enums\ReservationStatus;
 
 class Reservation extends Model
 {
+    use HasFactory;
+
+    protected static function newFactory(): ReservationFactory
+    {
+        return ReservationFactory::new();
+    }
+
     protected $fillable = [
         'reservation_number',
         'guest_id',

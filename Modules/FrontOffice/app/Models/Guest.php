@@ -2,11 +2,20 @@
 
 namespace Modules\FrontOffice\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Modules\FrontOffice\Database\Factories\GuestFactory;
 
 class Guest extends Model
 {
+    use HasFactory;
+
+    protected static function newFactory(): GuestFactory
+    {
+        return GuestFactory::new();
+    }
+
     protected $fillable = [
         'full_name',
         'email',
