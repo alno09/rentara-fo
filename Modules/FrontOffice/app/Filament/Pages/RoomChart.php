@@ -19,7 +19,7 @@ class RoomChart extends Page
 
     protected static ?string $title = 'Room Chart';
 
-    protected static ?string $navigationGroup = 'Front Office';
+    protected static string | \UnitEnum | null $navigationGroup = 'Front Office';
 
     protected static ?int $navigationSort = 0;
 
@@ -61,6 +61,10 @@ class RoomChart extends Page
     public string $source = 'walk_in';
 
     public ?string $notes = null;
+
+    public bool $showReservationDetailModal = false;
+
+    public ?int $selectedReservationId = null;
 
     public function mount(): void
     {
@@ -353,5 +357,65 @@ class RoomChart extends Page
         $this->notes = null;
 
         $this->resetValidation();
+    }
+
+    public function reservationPosition($reservation): array
+    {
+        $chartStart = CarbonImmutable::parse($this->startDate);
+
+        $chartEnd = $chartStart->addDays($this->days);
+
+        $reservationStart = CarbonImmutable::parse(
+            $reservation->arrival_date
+        );
+
+        $reservationEnd = CarbonImmutable::parse(
+            $reservation->departure_date
+        );
+
+        $visibleStart = $reservationStart->greaterThan($chartStart)
+            ? $reservationStart
+            : $chartStart;
+
+        $visibleEnd = $reservationEnd->lessThan($chartEnd)
+            ? $reservationEnd
+            : $chartEnd;
+
+        return [
+            'start' => $chartStart->diffInDays($visibleStart),
+            'span' => max(
+                1,
+                $visibleStart->diffInDays($visibleEnd)
+            ),
+        ];
+    }
+
+    public function openReservationDetail(int $reservationId): void
+    {
+        $this->selectedReservationId = $reservationId;
+
+        $this->showReservationDetailModal = true;
+    }
+
+    public function closeReservationDetail(): void
+    {
+        $this->selectedReservationId = null;
+
+        $this->showReservationDetailModal = false;
+    }
+
+    public function getSelectedReservationProperty()
+    {
+        if ($this->selectedReservationId === null) {
+            return null;
+        }
+
+        return \Modules\FrontOffice\Models\Reservation::query()
+            ->with([
+                'guest',
+                'room',
+                'roomType',
+            ])
+            ->find($this->selectedReservationId);
     }
 }

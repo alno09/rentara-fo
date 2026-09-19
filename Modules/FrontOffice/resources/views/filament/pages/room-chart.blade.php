@@ -115,99 +115,144 @@
                         </div>
                     </div>
 
-                    {{-- Date cells --}}
-                    @foreach ($this->dates as $date)
-                        @php
-                            $reservation = $room
-                                ->reservations
-                                ->first(function ($reservation) use ($date) {
-                                    return $date->gte(
-                                        $reservation->arrival_date
-                                    ) && $date->lt(
-                                        $reservation->departure_date
-                                    );
-                                });
-                        @endphp
+                    {{-- Timeline area --}}
+                    <div
+                        class="relative border-b border-gray-200 dark:border-gray-800"
+                        style="
+                            grid-column: span {{ $days }};
+                            display: grid;
+                            grid-template-columns:
+                                repeat({{ $days }}, minmax(120px, 1fr));
+                        "
+                    >
+                        {{-- Empty clickable cells --}}
+                        @foreach ($this->dates as $date)
+                            @php
+                                $reservation = $room
+                                    ->reservations
+                                    ->first(function ($reservation) use ($date) {
+                                        return $date->gte(
+                                            $reservation->arrival_date
+                                        ) && $date->lt(
+                                            $reservation->departure_date
+                                        );
+                                    });
+                            @endphp
 
-                        <button
-                            type="button"
-                            @if (! $reservation)
+                            <button
+                                type="button"
+                                @if (! $reservation)
+                                    wire:click="
+                                        openReservationModal(
+                                            {{ $room->id }},
+                                            '{{ $date->toDateString() }}'
+                                        )
+                                    "
+                                @endif
+                                class="
+                                    min-h-20
+                                    border-r
+                                    border-gray-200
+                                    transition
+                                    dark:border-gray-800
+
+                                    @if (! $reservation)
+                                        hover:bg-gray-50
+                                        dark:hover:bg-white/5
+                                    @endif
+                                "
+                            >
+                                @if (! $reservation)
+                                    <span class="text-xs text-gray-300">
+                                        +
+                                    </span>
+                                @endif
+                            </button>
+                        @endforeach
+
+                        {{-- Reservation bars --}}
+                        @foreach ($room->reservations as $reservation)
+                            @php
+                                $position =
+                                    $this->reservationPosition($reservation);
+
+                                $startColumn =
+                                    $position['start'] + 1;
+
+                                $span =
+                                    $position['span'];
+                            @endphp
+
+                            <button
+                                type="button"
                                 wire:click="
-                                    openReservationModal(
-                                        {{ $room->id }},
-                                        '{{ $date->toDateString() }}'
+                                    openReservationDetail(
+                                        {{ $reservation->id }}
                                     )
                                 "
-                            @endif
-                            class="
-                                min-h-20
-                                border-b
-                                border-r
-                                border-gray-200
-                                p-2
-                                text-left
-                                transition
-                                dark:border-gray-800
+                                class="
+                                    absolute
+                                    top-3
+                                    z-10
+                                    rounded-lg
+                                    border
+                                    border-primary-300
+                                    bg-primary-50
+                                    px-3
+                                    py-2
+                                    text-left
+                                    text-xs
+                                    shadow-sm
+                                    hover:shadow-md
+                                    dark:border-primary-700
+                                    dark:bg-primary-950
+                                "
+                                style="
+                                    left:
+                                        calc(
+                                            (100% / {{ $days }})
+                                            * {{ $position['start'] }}
+                                        );
 
-                                @if (! $reservation)
-                                    hover:bg-gray-50
-                                    dark:hover:bg-white/5
-                                @else
-                                    cursor-default
-                                @endif
-                            "
-                        >
-                            @if ($reservation)
+                                    width:
+                                        calc(
+                                            (100% / {{ $days }})
+                                            * {{ $span }}
+                                        );
+
+                                    margin-left: 4px;
+                                    margin-right: 4px;
+                                "
+                            >
+                                <div class="truncate font-semibold">
+                                    {{ $reservation->guest->full_name }}
+                                </div>
+
                                 <div
                                     class="
-                                        rounded-lg
-                                        border
-                                        border-gray-300
-                                        bg-gray-50
-                                        p-2
-                                        text-xs
-                                        dark:border-gray-700
-                                        dark:bg-gray-900
+                                        mt-1
+                                        truncate
+                                        text-gray-500
+                                        dark:text-gray-400
                                     "
                                 >
-                                    <div class="font-semibold">
-                                        {{ $reservation->guest->full_name }}
-                                    </div>
+                                    {{ $reservation->reservation_number }}
+                                </div>
 
-                                    <div class="mt-1 text-gray-500 dark:text-gray-400">
-                                        {{ $reservation->reservation_number }}
-                                    </div>
-
-                                    <div class="mt-1">
-                                        {{
-                                            ucfirst(
-                                                str_replace(
-                                                    '_',
-                                                    ' ',
-                                                    $reservation->status->value
-                                                )
+                                <div class="mt-1">
+                                    {{
+                                        ucfirst(
+                                            str_replace(
+                                                '_',
+                                                ' ',
+                                                $reservation->status->value
                                             )
-                                        }}
-                                    </div>
+                                        )
+                                    }}
                                 </div>
-                            @else
-                                <div
-                                    class="
-                                        flex
-                                        h-full
-                                        min-h-16
-                                        items-center
-                                        justify-center
-                                        text-xs
-                                        text-gray-300
-                                        dark:text-gray-700
-                                    "
-                                >
-                                    +
-                                </div>
-                            @endif
-                        </button>
-                    @endforeach
+                            </button>
+                        @endforeach
+                    </div>
                 @endforeach
             </div>
         </div>
@@ -638,6 +683,214 @@
                             </x-filament::button>
                         </div>
                     </form>
+                </div>
+            </div>
+        @endif
+
+        @if (
+            $showReservationDetailModal &&
+            $this->selectedReservation
+        )
+            @php
+                $reservation = $this->selectedReservation;
+            @endphp
+
+            <div
+                class="
+                    fixed
+                    inset-0
+                    z-50
+                    flex
+                    items-center
+                    justify-center
+                    bg-black/50
+                    p-4
+                "
+            >
+                <div
+                    class="
+                        w-full
+                        max-w-lg
+                        rounded-2xl
+                        bg-white
+                        p-6
+                        shadow-2xl
+                        dark:bg-gray-900
+                    "
+                >
+                    <div
+                        class="
+                            flex
+                            items-start
+                            justify-between
+                            gap-4
+                        "
+                    >
+                        <div>
+                            <h2 class="text-lg font-semibold">
+                                {{ $reservation->guest->full_name }}
+                            </h2>
+
+                            <p
+                                class="
+                                    mt-1
+                                    text-sm
+                                    text-gray-500
+                                    dark:text-gray-400
+                                "
+                            >
+                                {{ $reservation->reservation_number }}
+                            </p>
+                        </div>
+
+                        <button
+                            type="button"
+                            wire:click="closeReservationDetail"
+                            class="
+                                rounded-lg
+                                p-2
+                                text-gray-500
+                                hover:bg-gray-100
+                                dark:hover:bg-gray-800
+                            "
+                        >
+                            ✕
+                        </button>
+                    </div>
+
+                    <div class="mt-6 space-y-4">
+                        <div
+                            class="
+                                grid
+                                grid-cols-2
+                                gap-4
+                                text-sm
+                            "
+                        >
+                            <div>
+                                <div class="text-gray-500">
+                                    Room
+                                </div>
+
+                                <div class="font-medium">
+                                    {{
+                                        $reservation->room?->room_number
+                                        ?? 'Unassigned'
+                                    }}
+                                </div>
+                            </div>
+
+                            <div>
+                                <div class="text-gray-500">
+                                    Room Type
+                                </div>
+
+                                <div class="font-medium">
+                                    {{ $reservation->roomType->name }}
+                                </div>
+                            </div>
+
+                            <div>
+                                <div class="text-gray-500">
+                                    Arrival
+                                </div>
+
+                                <div class="font-medium">
+                                    {{
+                                        $reservation
+                                            ->arrival_date
+                                            ->format('d M Y')
+                                    }}
+                                </div>
+                            </div>
+
+                            <div>
+                                <div class="text-gray-500">
+                                    Departure
+                                </div>
+
+                                <div class="font-medium">
+                                    {{
+                                        $reservation
+                                            ->departure_date
+                                            ->format('d M Y')
+                                    }}
+                                </div>
+                            </div>
+
+                            <div>
+                                <div class="text-gray-500">
+                                    Status
+                                </div>
+
+                                <div class="font-medium">
+                                    {{
+                                        ucfirst(
+                                            str_replace(
+                                                '_',
+                                                ' ',
+                                                $reservation->status->value
+                                            )
+                                        )
+                                    }}
+                                </div>
+                            </div>
+
+                            <div>
+                                <div class="text-gray-500">
+                                    Nightly Rate
+                                </div>
+
+                                <div class="font-medium">
+                                    Rp
+                                    {{
+                                        number_format(
+                                            $reservation->nightly_rate,
+                                            0,
+                                            ',',
+                                            '.'
+                                        )
+                                    }}
+                                </div>
+                            </div>
+                        </div>
+
+                        @if ($reservation->notes)
+                            <div>
+                                <div
+                                    class="
+                                        text-sm
+                                        text-gray-500
+                                    "
+                                >
+                                    Notes
+                                </div>
+
+                                <div class="mt-1 text-sm">
+                                    {{ $reservation->notes }}
+                                </div>
+                            </div>
+                        @endif
+                    </div>
+
+                    <div
+                        class="
+                            mt-6
+                            flex
+                            justify-end
+                            border-t
+                            border-gray-200
+                            pt-4
+                            dark:border-gray-800
+                        "
+                    >
+                        <x-filament::button
+                            color="gray"
+                            wire:click="closeReservationDetail"
+                        >
+                            Close
+                        </x-filament::button>
+                    </div>
                 </div>
             </div>
         @endif
