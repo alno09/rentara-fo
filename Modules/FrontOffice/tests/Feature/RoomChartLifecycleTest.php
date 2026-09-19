@@ -8,8 +8,10 @@ use Modules\FrontOffice\Enums\ReservationStatus;
 use Modules\FrontOffice\Enums\RoomStatus;
 use Modules\FrontOffice\Enums\StayStatus;
 use Modules\FrontOffice\Filament\Pages\RoomChart;
+use Modules\FrontOffice\Models\Guest;
 use Modules\FrontOffice\Models\Reservation;
 use Modules\FrontOffice\Models\Room;
+use Modules\FrontOffice\Models\RoomType;
 use Modules\FrontOffice\Tests\TestCase;
 use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 
@@ -70,5 +72,44 @@ class RoomChartLifecycleTest extends TestCase
         $this->assertSame(ReservationStatus::CHECKED_IN, $reservation->refresh()->status);
         $this->assertSame(RoomStatus::OCCUPIED, $room->refresh()->status);
         $this->assertDatabaseMissing('stays', ['reservation_id' => $reservation->id]);
+    }
+
+    public function test_room_type_and_floor_filters_limit_visible_rooms(): void
+    {
+        $deluxe = RoomType::factory()->create(['name' => 'Deluxe']);
+        $standard = RoomType::factory()->create(['name' => 'Standard']);
+        Room::factory()->create(['room_type_id' => $deluxe->id, 'room_number' => 'D101', 'floor' => 1]);
+        Room::factory()->create(['room_type_id' => $deluxe->id, 'room_number' => 'D201', 'floor' => 2]);
+        Room::factory()->create(['room_type_id' => $standard->id, 'room_number' => 'S101', 'floor' => 1]);
+
+        Livewire::test(RoomChart::class)
+            ->set('roomTypeFilter', $deluxe->id)
+            ->set('floorFilter', 1)
+            ->assertSee('D101')
+            ->assertDontSee('D201')
+            ->assertDontSee('S101');
+    }
+
+    public function test_quick_reservation_still_creates_a_booking(): void
+    {
+        $room = Room::factory()->create();
+        $guest = Guest::factory()->create();
+        $arrival = today()->addDay()->toDateString();
+
+        Livewire::test(RoomChart::class)
+            ->call('openReservationModal', $room->id, $arrival)
+            ->assertSet('selectedRoomId', $room->id)
+            ->assertSet('selectedDate', $arrival)
+            ->assertSet('departureDate', today()->addDays(2)->toDateString())
+            ->assertSet('nightlyRate', (string) $room->roomType->base_rate)
+            ->set('guestId', $guest->id)
+            ->call('createReservation');
+
+        $this->assertDatabaseHas('reservations', [
+            'guest_id' => $guest->id,
+            'room_id' => $room->id,
+            'arrival_date' => $arrival,
+            'status' => ReservationStatus::PENDING->value,
+        ]);
     }
 }

@@ -13,9 +13,11 @@ use Modules\FrontOffice\Actions\Stays\CheckInGuest;
 use Modules\FrontOffice\Actions\Stays\CheckOutGuest;
 use Modules\FrontOffice\Data\CreateReservationData;
 use Modules\FrontOffice\Enums\ReservationStatus;
+use Modules\FrontOffice\Enums\RoomStatus;
 use Modules\FrontOffice\Models\Guest;
 use Modules\FrontOffice\Models\Reservation;
 use Modules\FrontOffice\Models\Room;
+use Modules\FrontOffice\Models\RoomType;
 
 class RoomChart extends Page
 {
@@ -39,6 +41,10 @@ class RoomChart extends Page
     public string $startDate;
 
     public int $days = 7;
+
+    public ?int $roomTypeFilter = null;
+
+    public ?int $floorFilter = null;
 
     /*
     |--------------------------------------------------------------------------
@@ -126,6 +132,14 @@ class RoomChart extends Page
         $end = $start->addDays($this->days);
 
         return Room::query()
+            ->when(
+                $this->roomTypeFilter !== null,
+                fn ($query) => $query->where('room_type_id', $this->roomTypeFilter),
+            )
+            ->when(
+                $this->floorFilter !== null,
+                fn ($query) => $query->where('floor', $this->floorFilter),
+            )
             ->with([
                 'roomType',
 
@@ -152,6 +166,42 @@ class RoomChart extends Page
             ->orderBy('floor')
             ->orderBy('room_number')
             ->get();
+    }
+
+    public function getRoomTypesProperty()
+    {
+        return RoomType::query()->orderBy('name')->get(['id', 'name']);
+    }
+
+    public function getFloorsProperty(): array
+    {
+        return Room::query()
+            ->whereNotNull('floor')
+            ->distinct()
+            ->orderBy('floor')
+            ->pluck('floor')
+            ->all();
+    }
+
+    public function reservationStyle(ReservationStatus $status): string
+    {
+        return match ($status) {
+            ReservationStatus::PENDING => 'border-amber-400 bg-amber-100 text-amber-950 dark:border-amber-600 dark:bg-amber-950 dark:text-amber-100',
+            ReservationStatus::CONFIRMED => 'border-emerald-400 bg-emerald-100 text-emerald-950 dark:border-emerald-600 dark:bg-emerald-950 dark:text-emerald-100',
+            ReservationStatus::CHECKED_IN => 'border-sky-400 bg-sky-100 text-sky-950 dark:border-sky-600 dark:bg-sky-950 dark:text-sky-100',
+            ReservationStatus::CHECKED_OUT => 'border-gray-400 bg-gray-100 text-gray-800 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100',
+            default => 'border-gray-400 bg-gray-100 text-gray-800 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100',
+        };
+    }
+
+    public function roomStatusStyle(RoomStatus $status): string
+    {
+        return match ($status) {
+            RoomStatus::AVAILABLE => 'bg-emerald-500',
+            RoomStatus::OCCUPIED => 'bg-sky-500',
+            RoomStatus::DIRTY => 'bg-orange-500',
+            RoomStatus::MAINTENANCE => 'bg-red-500',
+        };
     }
 
     public function getGuestsProperty()

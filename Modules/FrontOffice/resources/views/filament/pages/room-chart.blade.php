@@ -1,9 +1,12 @@
 <x-filament-panels::page>
+    @php
+        $today = today()->toDateString();
+    @endphp
     <div class="space-y-4">
 
         {{-- Toolbar --}}
-        <div class="flex items-center justify-between gap-4">
-            <div class="flex items-center gap-2">
+        <div class="flex flex-wrap items-center gap-3">
+            <div class="flex shrink-0 items-center gap-2">
                 <x-filament::button
                     color="gray"
                     wire:click="previousPeriod"
@@ -26,7 +29,7 @@
                 </x-filament::button>
             </div>
 
-            <div class="text-sm text-gray-500 dark:text-gray-400">
+            <div class="min-w-36 text-sm font-medium text-gray-600 dark:text-gray-300">
                 {{ \Carbon\Carbon::parse($startDate)->format('d M Y') }}
                 —
                 {{
@@ -35,22 +38,58 @@
                         ->format('d M Y')
                 }}
             </div>
+
+            <div class="flex flex-wrap items-center gap-2 sm:ml-auto">
+                <label for="room-type-filter" class="sr-only">Room Type</label>
+                <select
+                    id="room-type-filter"
+                    wire:model.live="roomTypeFilter"
+                    class="min-w-40 rounded-md border-gray-300 bg-white text-sm dark:border-gray-700 dark:bg-gray-900"
+                >
+                    <option value="">All Room Types</option>
+                    @foreach ($this->roomTypes as $roomType)
+                        <option value="{{ $roomType->id }}">{{ $roomType->name }}</option>
+                    @endforeach
+                </select>
+
+                <label for="floor-filter" class="sr-only">Floor</label>
+                <select
+                    id="floor-filter"
+                    wire:model.live="floorFilter"
+                    class="min-w-28 rounded-md border-gray-300 bg-white text-sm dark:border-gray-700 dark:bg-gray-900"
+                >
+                    <option value="">All Floors</option>
+                    @foreach ($this->floors as $floor)
+                        <option value="{{ $floor }}">Floor {{ $floor }}</option>
+                    @endforeach
+                </select>
+            </div>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-gray-600 dark:text-gray-300" aria-label="Status legend">
+            <span class="inline-flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-sm bg-amber-400"></span>Pending</span>
+            <span class="inline-flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-sm bg-emerald-400"></span>Confirmed</span>
+            <span class="inline-flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-sm bg-sky-400"></span>Checked In</span>
+            <span class="inline-flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-sm bg-gray-400"></span>Checked Out</span>
+            <span class="inline-flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-full bg-orange-500"></span>Dirty room</span>
+            <span class="inline-flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-full bg-red-500"></span>Maintenance</span>
         </div>
 
         {{-- Room Chart --}}
-        <div class="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-800">
+        <div class="overflow-auto rounded-md border border-gray-200 dark:border-gray-800" style="max-height: 72vh;">
             <div
-                class="min-w-[1000px]"
+                class="min-w-max"
                 style="
                     display: grid;
                     grid-template-columns:
-                        160px
+                        180px
                         repeat({{ $days }}, minmax(120px, 1fr));
                 "
             >
                 {{-- Header: Room column --}}
                 <div
                     class="
+                        sticky top-0 left-0 z-40
                         border-b
                         border-r
                         border-gray-200
@@ -68,14 +107,16 @@
                 @foreach ($this->dates as $date)
                     <div
                         class="
+                            sticky top-0 z-30
                             border-b
                             border-r
                             border-gray-200
-                            bg-gray-50
                             p-3
                             text-center
                             dark:border-gray-800
-                            dark:bg-gray-900
+                            {{ $date->toDateString() === $today
+                                ? 'bg-cyan-100 dark:bg-cyan-950'
+                                : 'bg-gray-50 dark:bg-gray-900' }}
                         "
                     >
                         <div class="font-semibold">
@@ -93,6 +134,7 @@
                     {{-- Room info --}}
                     <div
                         class="
+                            sticky left-0 z-20
                             border-b
                             border-r
                             border-gray-200
@@ -102,12 +144,13 @@
                             dark:bg-gray-950
                         "
                     >
-                        <div class="font-semibold">
-                            {{ $room->room_number }}
+                        <div class="flex items-center gap-2 font-semibold">
+                            <span class="h-2.5 w-2.5 shrink-0 rounded-full {{ $this->roomStatusStyle($room->status) }}" aria-hidden="true"></span>
+                            <span>{{ $room->room_number }}</span>
                         </div>
 
-                        <div class="text-xs text-gray-500 dark:text-gray-400">
-                            {{ $room->roomType->name }}
+                        <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                            {{ $room->roomType->name }} · {{ ucfirst($room->status->value) }}
                         </div>
 
                         <div class="mt-1 text-xs text-gray-400">
@@ -141,6 +184,7 @@
 
                             <button
                                 type="button"
+                                aria-label="{{ $reservation ? 'Reserved' : 'Reserve room '.$room->room_number.' on '.$date->format('d M Y') }}"
                                 @if (! $reservation)
                                     wire:click="
                                         openReservationModal(
@@ -153,17 +197,21 @@
                                     min-h-20
                                     border-r
                                     border-gray-200
-                                    transition
+                                    transition-colors
                                     dark:border-gray-800
+                                    {{ $date->toDateString() === $today
+                                        ? 'bg-cyan-50/60 dark:bg-cyan-950/30'
+                                        : '' }}
 
                                     @if (! $reservation)
-                                        hover:bg-gray-50
-                                        dark:hover:bg-white/5
+                                        group hover:bg-cyan-100 focus-visible:bg-cyan-100
+                                        dark:hover:bg-cyan-900/40 dark:focus-visible:bg-cyan-900/40
                                     @endif
                                 "
+                                @if ($reservation) disabled @endif
                             >
                                 @if (! $reservation)
-                                    <span class="text-xs text-gray-300">
+                                    <span class="text-sm text-cyan-600 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 dark:text-cyan-300" aria-hidden="true">
                                         +
                                     </span>
                                 @endif
@@ -175,9 +223,6 @@
                             @php
                                 $position =
                                     $this->reservationPosition($reservation);
-
-                                $startColumn =
-                                    $position['start'] + 1;
 
                                 $span =
                                     $position['span'];
@@ -194,18 +239,15 @@
                                     absolute
                                     top-3
                                     z-10
-                                    rounded-lg
+                                    overflow-hidden rounded-md
                                     border
-                                    border-primary-300
-                                    bg-primary-50
                                     px-3
                                     py-2
                                     text-left
                                     text-xs
                                     shadow-sm
                                     hover:shadow-md
-                                    dark:border-primary-700
-                                    dark:bg-primary-950
+                                    {{ $this->reservationStyle($reservation->status) }}
                                 "
                                 style="
                                     left:
@@ -217,29 +259,17 @@
                                     width:
                                         calc(
                                             (100% / {{ $days }})
-                                            * {{ $span }}
+                                            * {{ $span }} - 8px
                                         );
 
                                     margin-left: 4px;
-                                    margin-right: 4px;
                                 "
                             >
                                 <div class="truncate font-semibold">
                                     {{ $reservation->guest->full_name }}
                                 </div>
 
-                                <div
-                                    class="
-                                        mt-1
-                                        truncate
-                                        text-gray-500
-                                        dark:text-gray-400
-                                    "
-                                >
-                                    {{ $reservation->reservation_number }}
-                                </div>
-
-                                <div class="mt-1">
+                                <div class="mt-1 truncate font-medium">
                                     {{
                                         ucfirst(
                                             str_replace(
@@ -250,6 +280,11 @@
                                         )
                                     }}
                                 </div>
+                                @if ($span > 1)
+                                    <div class="mt-0.5 truncate opacity-75">
+                                        {{ $reservation->reservation_number }}
+                                    </div>
+                                @endif
                             </button>
                         @endforeach
                     </div>
@@ -758,7 +793,7 @@
                         </button>
                     </div>
 
-                    <div class="mt-6 space-y-4">
+                    <div class="mt-6 space-y-5">
                         <div
                             class="
                                 grid
@@ -823,17 +858,9 @@
                                     Status
                                 </div>
 
-                                <div class="font-medium">
-                                    {{
-                                        ucfirst(
-                                            str_replace(
-                                                '_',
-                                                ' ',
-                                                $reservation->status->value
-                                            )
-                                        )
-                                    }}
-                                </div>
+                                <span class="mt-1 inline-flex rounded-sm border px-2 py-0.5 text-xs font-semibold {{ $this->reservationStyle($reservation->status) }}">
+                                    {{ ucwords(str_replace('_', ' ', $reservation->status->value)) }}
+                                </span>
                             </div>
 
                             <div>
@@ -887,7 +914,7 @@
                             dark:border-gray-800
                         "
                     >
-                        <div>
+                        <div class="order-2 sm:order-1">
                             @if ($reservation->status === \Modules\FrontOffice\Enums\ReservationStatus::PENDING)
                                 <x-filament::button
                                     wire:click="confirmSelectedReservation"
@@ -919,6 +946,7 @@
                         </div>
 
                         <x-filament::button
+                            class="order-1 sm:order-2"
                             color="gray"
                             wire:click="closeReservationDetail"
                         >
