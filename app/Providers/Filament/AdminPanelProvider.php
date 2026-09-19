@@ -37,6 +37,10 @@ class AdminPanelProvider extends PanelProvider
                 in: base_path('Modules/FrontOffice/app/Filament/Resources'),
                 for: 'Modules\\FrontOffice\\Filament\\Resources'
             )
+            ->discoverPages(
+                in: base_path('Modules/FrontOffice/app/Filament/Pages'),
+                for: 'Modules\\FrontOffice\\Filament\\Pages'
+            )
             ->discoverResources(
                 in: base_path('Modules/Billing/app/Filament/Resources'),
                 for: 'Modules\\Billing\\Filament\\Resources'
