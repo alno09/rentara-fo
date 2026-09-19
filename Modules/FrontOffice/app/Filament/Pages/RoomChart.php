@@ -7,10 +7,14 @@ use DomainException;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use InvalidArgumentException;
+use Modules\FrontOffice\Actions\Reservations\ConfirmReservation;
 use Modules\FrontOffice\Actions\Reservations\CreateReservation;
+use Modules\FrontOffice\Actions\Stays\CheckInGuest;
+use Modules\FrontOffice\Actions\Stays\CheckOutGuest;
 use Modules\FrontOffice\Data\CreateReservationData;
 use Modules\FrontOffice\Enums\ReservationStatus;
 use Modules\FrontOffice\Models\Guest;
+use Modules\FrontOffice\Models\Reservation;
 use Modules\FrontOffice\Models\Room;
 
 class RoomChart extends Page
@@ -131,6 +135,7 @@ class RoomChart extends Page
                             ReservationStatus::PENDING->value,
                             ReservationStatus::CONFIRMED->value,
                             ReservationStatus::CHECKED_IN->value,
+                            ReservationStatus::CHECKED_OUT->value,
                         ])
                         ->where(
                             'arrival_date',
@@ -404,18 +409,101 @@ class RoomChart extends Page
         $this->showReservationDetailModal = false;
     }
 
-    public function getSelectedReservationProperty()
+    public function getSelectedReservationProperty(): ?Reservation
     {
         if ($this->selectedReservationId === null) {
             return null;
         }
 
-        return \Modules\FrontOffice\Models\Reservation::query()
+        return Reservation::query()
             ->with([
                 'guest',
                 'room',
                 'roomType',
+                'stay',
             ])
             ->find($this->selectedReservationId);
+    }
+
+    public function confirmSelectedReservation(): void
+    {
+        $reservation = $this->selectedReservation;
+
+        if ($reservation === null) {
+            return;
+        }
+
+        try {
+            app(ConfirmReservation::class)->execute($reservation);
+
+            Notification::make()
+                ->title('Reservation confirmed')
+                ->success()
+                ->send();
+        } catch (DomainException | InvalidArgumentException $exception) {
+            Notification::make()
+                ->title('Unable to confirm reservation')
+                ->body($exception->getMessage())
+                ->danger()
+                ->send();
+        }
+    }
+
+    public function checkInSelectedReservation(): void
+    {
+        $reservation = $this->selectedReservation;
+
+        if ($reservation === null) {
+            return;
+        }
+
+        try {
+            app(CheckInGuest::class)->execute($reservation);
+
+            Notification::make()
+                ->title('Guest checked in')
+                ->success()
+                ->send();
+        } catch (DomainException | InvalidArgumentException $exception) {
+            Notification::make()
+                ->title('Unable to check in guest')
+                ->body($exception->getMessage())
+                ->danger()
+                ->send();
+        }
+    }
+
+    public function checkOutSelectedReservation(): void
+    {
+        $reservation = $this->selectedReservation;
+
+        if ($reservation === null) {
+            return;
+        }
+
+        if ($reservation->stay === null) {
+            Notification::make()
+                ->title('Unable to check out guest')
+                ->body('No stay exists for this reservation.')
+                ->danger()
+                ->send();
+
+            return;
+        }
+
+        try {
+            app(CheckOutGuest::class)->execute($reservation->stay);
+
+            Notification::make()
+                ->title('Guest checked out')
+                ->success()
+                ->send();
+        } catch (DomainException | InvalidArgumentException $exception) {
+            Notification::make()
+                ->title('Unable to check out guest')
+                ->body($exception->getMessage())
+                ->danger()
+                ->send();
+        }
     }
 }

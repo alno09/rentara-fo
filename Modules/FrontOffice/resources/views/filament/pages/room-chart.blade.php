@@ -877,13 +877,47 @@
                         class="
                             mt-6
                             flex
-                            justify-end
+                            flex-wrap
+                            items-center
+                            justify-between
+                            gap-3
                             border-t
                             border-gray-200
                             pt-4
                             dark:border-gray-800
                         "
                     >
+                        <div>
+                            @if ($reservation->status === \Modules\FrontOffice\Enums\ReservationStatus::PENDING)
+                                <x-filament::button
+                                    wire:click="confirmSelectedReservation"
+                                    wire:loading.attr="disabled"
+                                    wire:target="confirmSelectedReservation"
+                                >
+                                    <span wire:loading.remove wire:target="confirmSelectedReservation">Confirm Reservation</span>
+                                    <span wire:loading wire:target="confirmSelectedReservation">Confirming...</span>
+                                </x-filament::button>
+                            @elseif ($reservation->status === \Modules\FrontOffice\Enums\ReservationStatus::CONFIRMED)
+                                <x-filament::button
+                                    wire:click="checkInSelectedReservation"
+                                    wire:loading.attr="disabled"
+                                    wire:target="checkInSelectedReservation"
+                                >
+                                    <span wire:loading.remove wire:target="checkInSelectedReservation">Check In</span>
+                                    <span wire:loading wire:target="checkInSelectedReservation">Checking In...</span>
+                                </x-filament::button>
+                            @elseif ($reservation->status === \Modules\FrontOffice\Enums\ReservationStatus::CHECKED_IN)
+                                <x-filament::button
+                                    wire:click="checkOutSelectedReservation"
+                                    wire:loading.attr="disabled"
+                                    wire:target="checkOutSelectedReservation"
+                                >
+                                    <span wire:loading.remove wire:target="checkOutSelectedReservation">Check Out</span>
+                                    <span wire:loading wire:target="checkOutSelectedReservation">Checking Out...</span>
+                                </x-filament::button>
+                            @endif
+                        </div>
+
                         <x-filament::button
                             color="gray"
                             wire:click="closeReservationDetail"

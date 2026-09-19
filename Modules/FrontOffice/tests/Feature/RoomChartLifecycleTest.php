@@ -1,0 +1,74 @@
+<?php
+
+namespace Modules\FrontOffice\Tests\Feature;
+
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Livewire\Livewire;
+use Modules\FrontOffice\Enums\ReservationStatus;
+use Modules\FrontOffice\Enums\RoomStatus;
+use Modules\FrontOffice\Enums\StayStatus;
+use Modules\FrontOffice\Filament\Pages\RoomChart;
+use Modules\FrontOffice\Models\Reservation;
+use Modules\FrontOffice\Models\Room;
+use Modules\FrontOffice\Tests\TestCase;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
+
+#[RunTestsInSeparateProcesses]
+class RoomChartLifecycleTest extends TestCase
+{
+    use RefreshDatabase;
+
+    public function test_reservation_can_complete_its_lifecycle_from_the_room_chart(): void
+    {
+        $room = Room::factory()->create();
+        $reservation = Reservation::factory()->create([
+            'room_type_id' => $room->room_type_id,
+            'room_id' => $room->id,
+            'arrival_date' => today(),
+            'departure_date' => today()->addDays(2),
+            'status' => ReservationStatus::PENDING,
+        ]);
+
+        $chart = Livewire::test(RoomChart::class)
+            ->call('openReservationDetail', $reservation->id)
+            ->call('confirmSelectedReservation');
+
+        $this->assertSame(ReservationStatus::CONFIRMED, $reservation->refresh()->status);
+
+        $chart->call('checkInSelectedReservation');
+
+        $this->assertSame(ReservationStatus::CHECKED_IN, $reservation->refresh()->status);
+        $this->assertSame(RoomStatus::OCCUPIED, $room->refresh()->status);
+        $this->assertDatabaseHas('stays', [
+            'reservation_id' => $reservation->id,
+            'status' => StayStatus::ACTIVE->value,
+        ]);
+
+        $chart->call('checkOutSelectedReservation');
+
+        $this->assertSame(ReservationStatus::CHECKED_OUT, $reservation->refresh()->status);
+        $this->assertSame(RoomStatus::DIRTY, $room->refresh()->status);
+        $this->assertSame(StayStatus::COMPLETED, $reservation->stay->refresh()->status);
+        $chart->assertSee('Checked out');
+    }
+
+    public function test_check_out_without_a_stay_does_not_change_state(): void
+    {
+        $room = Room::factory()->create(['status' => RoomStatus::OCCUPIED]);
+        $reservation = Reservation::factory()->create([
+            'room_type_id' => $room->room_type_id,
+            'room_id' => $room->id,
+            'arrival_date' => today(),
+            'departure_date' => today()->addDays(2),
+            'status' => ReservationStatus::CHECKED_IN,
+        ]);
+
+        Livewire::test(RoomChart::class)
+            ->call('openReservationDetail', $reservation->id)
+            ->call('checkOutSelectedReservation');
+
+        $this->assertSame(ReservationStatus::CHECKED_IN, $reservation->refresh()->status);
+        $this->assertSame(RoomStatus::OCCUPIED, $room->refresh()->status);
+        $this->assertDatabaseMissing('stays', ['reservation_id' => $reservation->id]);
+    }
+}
