@@ -183,4 +183,108 @@ class RoomChartLifecycleTest extends TestCase
         $chart->assertSee($reservation->guest->full_name)
             ->assertSee($guest->full_name);
     }
+
+    public function test_edit_moves_reservation_to_new_room_and_dates_without_refresh(): void
+    {
+        $oldRoom = Room::factory()->create(['floor' => 1]);
+        $newRoom = Room::factory()->create([
+            'room_type_id' => $oldRoom->room_type_id,
+            'floor' => 2,
+        ]);
+        $reservation = Reservation::factory()->create([
+            'room_type_id' => $oldRoom->room_type_id,
+            'room_id' => $oldRoom->id,
+            'arrival_date' => today()->addDay(),
+            'departure_date' => today()->addDays(3),
+            'status' => ReservationStatus::PENDING,
+        ]);
+
+        $chart = Livewire::test(RoomChart::class)
+            ->set('floorFilter', 1)
+            ->call('openReservationDetail', $reservation->id)
+            ->call('openEditReservationModal')
+            ->assertSet('editRoomId', $oldRoom->id)
+            ->set('editRoomId', $newRoom->id)
+            ->set('editArrivalDate', today()->addDays(8)->toDateString())
+            ->set('editDepartureDate', today()->addDays(10)->toDateString())
+            ->call('updateSelectedReservation')
+            ->assertSet('showEditReservationModal', false)
+            ->assertSet('showReservationDetailModal', true);
+
+        $this->assertSame($newRoom->id, $reservation->refresh()->room_id);
+        $this->assertSame(today()->addDays(8)->toDateString(), $reservation->arrival_date->toDateString());
+
+        $chart->call('closeReservationDetail')
+            ->assertDontSee($reservation->guest->full_name)
+            ->set('floorFilter', 2)
+            ->assertDontSee($reservation->guest->full_name)
+            ->call('nextPeriod')
+            ->assertSee($reservation->guest->full_name);
+    }
+
+    public function test_edit_rejects_overlapping_room_and_keeps_modal_open(): void
+    {
+        $room = Room::factory()->create();
+        $reservation = Reservation::factory()->create([
+            'room_type_id' => $room->room_type_id,
+            'room_id' => $room->id,
+            'arrival_date' => today()->addDay(),
+            'departure_date' => today()->addDays(3),
+        ]);
+        Reservation::factory()->create([
+            'room_type_id' => $room->room_type_id,
+            'room_id' => $room->id,
+            'arrival_date' => today()->addDays(3),
+            'departure_date' => today()->addDays(5),
+            'status' => ReservationStatus::CONFIRMED,
+        ]);
+
+        Livewire::test(RoomChart::class)
+            ->call('openReservationDetail', $reservation->id)
+            ->call('openEditReservationModal')
+            ->set('editDepartureDate', today()->addDays(4)->toDateString())
+            ->call('updateSelectedReservation')
+            ->assertSet('showEditReservationModal', true);
+
+        $this->assertSame(today()->addDays(3)->toDateString(), $reservation->refresh()->departure_date->toDateString());
+    }
+
+    public function test_changing_room_type_clears_incompatible_room(): void
+    {
+        $room = Room::factory()->create();
+        $newType = RoomType::factory()->create(['base_rate' => 900000]);
+        $reservation = Reservation::factory()->create([
+            'room_type_id' => $room->room_type_id,
+            'room_id' => $room->id,
+            'arrival_date' => today()->addDay(),
+            'departure_date' => today()->addDays(3),
+        ]);
+
+        Livewire::test(RoomChart::class)
+            ->call('openReservationDetail', $reservation->id)
+            ->call('openEditReservationModal')
+            ->set('editRoomTypeId', $newType->id)
+            ->assertSet('editRoomId', null)
+            ->assertSet('editNightlyRate', (string) $newType->base_rate)
+            ->call('updateSelectedReservation')
+            ->assertSet('showEditReservationModal', false);
+
+        $this->assertSame($newType->id, $reservation->refresh()->room_type_id);
+        $this->assertNull($reservation->room_id);
+    }
+
+    public function test_terminal_reservation_has_no_edit_action(): void
+    {
+        $reservation = Reservation::factory()->create([
+            'status' => ReservationStatus::CHECKED_OUT,
+            'arrival_date' => today(),
+            'departure_date' => today()->addDay(),
+        ]);
+
+        Livewire::test(RoomChart::class)
+            ->call('openReservationDetail', $reservation->id)
+            ->assertDontSee('Edit Reservation')
+            ->call('openEditReservationModal')
+            ->assertSet('showEditReservationModal', false);
+    }
 }

@@ -6,7 +6,6 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables\Table;
 use Modules\FrontOffice\Filament\Resources\Reservations\Pages\CreateReservation;
-use Modules\FrontOffice\Filament\Resources\Reservations\Pages\EditReservation;
 use Modules\FrontOffice\Filament\Resources\Reservations\Pages\ListReservations;
 use Modules\FrontOffice\Filament\Resources\Reservations\Schemas\ReservationForm;
 use Modules\FrontOffice\Filament\Resources\Reservations\Tables\ReservationsTable;
@@ -41,7 +40,6 @@ class ReservationResource extends Resource
         return [
             'index' => ListReservations::route('/'),
             'create' => CreateReservation::route('/create'),
-            'edit' => EditReservation::route('/{record}/edit'),
         ];
     }
 }

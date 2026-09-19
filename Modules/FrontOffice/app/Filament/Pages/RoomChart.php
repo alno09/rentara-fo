@@ -12,9 +12,11 @@ use Modules\FrontOffice\Actions\Reservations\ConfirmReservation;
 use Modules\FrontOffice\Actions\Reservations\CancelReservation;
 use Modules\FrontOffice\Actions\Reservations\CreateReservation;
 use Modules\FrontOffice\Actions\Reservations\MarkReservationNoShow;
+use Modules\FrontOffice\Actions\Reservations\UpdateReservation;
 use Modules\FrontOffice\Actions\Stays\CheckInGuest;
 use Modules\FrontOffice\Actions\Stays\CheckOutGuest;
 use Modules\FrontOffice\Data\CreateReservationData;
+use Modules\FrontOffice\Data\UpdateReservationData;
 use Modules\FrontOffice\Enums\ReservationStatus;
 use Modules\FrontOffice\Enums\RoomStatus;
 use Modules\FrontOffice\Models\Guest;
@@ -78,6 +80,28 @@ class RoomChart extends Page
     public bool $showReservationDetailModal = false;
 
     public ?int $selectedReservationId = null;
+
+    public bool $showEditReservationModal = false;
+
+    public ?int $editGuestId = null;
+
+    public ?int $editRoomTypeId = null;
+
+    public ?int $editRoomId = null;
+
+    public ?string $editArrivalDate = null;
+
+    public ?string $editDepartureDate = null;
+
+    public int $editAdultCount = 1;
+
+    public int $editChildCount = 0;
+
+    public ?string $editNightlyRate = null;
+
+    public ?string $editSource = null;
+
+    public ?string $editNotes = null;
 
     public function mount(): void
     {
@@ -244,6 +268,35 @@ class RoomChart extends Page
         return Room::query()
             ->with('roomType')
             ->find($this->selectedRoomId);
+    }
+
+    public function getEditRoomsProperty()
+    {
+        if ($this->editRoomTypeId === null) {
+            return collect();
+        }
+
+        return Room::query()
+            ->where('room_type_id', $this->editRoomTypeId)
+            ->where('status', '!=', RoomStatus::MAINTENANCE->value)
+            ->orderBy('room_number')
+            ->get(['id', 'room_number']);
+    }
+
+    public function updatedEditRoomTypeId(): void
+    {
+        if ($this->editRoomId !== null && ! Room::query()
+            ->whereKey($this->editRoomId)
+            ->where('room_type_id', $this->editRoomTypeId)
+            ->exists()) {
+            $this->editRoomId = null;
+        }
+
+        if ($this->editRoomTypeId !== null) {
+            $this->editNightlyRate = (string) RoomType::query()
+                ->whereKey($this->editRoomTypeId)
+                ->value('base_rate');
+        }
     }
 
     /*
@@ -517,6 +570,94 @@ class RoomChart extends Page
                 'stay',
             ])
             ->find($this->selectedReservationId);
+    }
+
+    public function openEditReservationModal(): void
+    {
+        $reservation = $this->selectedReservation;
+
+        if ($reservation === null || ! in_array($reservation->status, [
+            ReservationStatus::PENDING,
+            ReservationStatus::CONFIRMED,
+        ], true)) {
+            return;
+        }
+
+        $this->editGuestId = $reservation->guest_id;
+        $this->editRoomTypeId = $reservation->room_type_id;
+        $this->editRoomId = $reservation->room_id;
+        $this->editArrivalDate = $reservation->arrival_date->toDateString();
+        $this->editDepartureDate = $reservation->departure_date->toDateString();
+        $this->editAdultCount = $reservation->adult_count;
+        $this->editChildCount = $reservation->child_count;
+        $this->editNightlyRate = $reservation->nightly_rate;
+        $this->editSource = $reservation->source;
+        $this->editNotes = $reservation->notes;
+        $this->showReservationDetailModal = false;
+        $this->showEditReservationModal = true;
+        $this->resetValidation();
+    }
+
+    public function closeEditReservationModal(): void
+    {
+        $this->showEditReservationModal = false;
+        $this->showReservationDetailModal = $this->selectedReservationId !== null;
+        $this->resetValidation();
+    }
+
+    public function updateSelectedReservation(): void
+    {
+        $reservation = $this->selectedReservation;
+
+        if ($reservation === null) {
+            return;
+        }
+
+        $validated = $this->validate([
+            'editGuestId' => ['required', 'integer', 'exists:guests,id'],
+            'editRoomTypeId' => ['required', 'integer', 'exists:room_types,id'],
+            'editRoomId' => ['nullable', 'integer', 'exists:rooms,id'],
+            'editArrivalDate' => ['required', 'date'],
+            'editDepartureDate' => ['required', 'date', 'after:editArrivalDate'],
+            'editAdultCount' => ['required', 'integer', 'min:1'],
+            'editChildCount' => ['required', 'integer', 'min:0'],
+            'editNightlyRate' => ['required', 'numeric', 'min:0'],
+            'editSource' => ['nullable', 'string'],
+            'editNotes' => ['nullable', 'string'],
+        ]);
+
+        try {
+            app(UpdateReservation::class)->execute(
+                $reservation,
+                new UpdateReservationData(
+                    guestId: (int) $validated['editGuestId'],
+                    roomTypeId: (int) $validated['editRoomTypeId'],
+                    roomId: isset($validated['editRoomId']) ? (int) $validated['editRoomId'] : null,
+                    arrivalDate: CarbonImmutable::parse($validated['editArrivalDate']),
+                    departureDate: CarbonImmutable::parse($validated['editDepartureDate']),
+                    adultCount: (int) $validated['editAdultCount'],
+                    childCount: (int) $validated['editChildCount'],
+                    nightlyRate: (string) $validated['editNightlyRate'],
+                    source: $validated['editSource'] ?? null,
+                    notes: $validated['editNotes'] ?? null,
+                ),
+            );
+        } catch (DomainException | InvalidArgumentException $exception) {
+            Notification::make()
+                ->title('Unable to update reservation')
+                ->body($exception->getMessage())
+                ->danger()
+                ->send();
+
+            return;
+        }
+
+        Notification::make()
+            ->title('Reservation updated')
+            ->success()
+            ->send();
+
+        $this->closeEditReservationModal();
     }
 
     public function confirmSelectedReservation(): void

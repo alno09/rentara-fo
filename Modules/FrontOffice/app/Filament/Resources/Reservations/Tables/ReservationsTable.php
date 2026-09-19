@@ -4,7 +4,6 @@ namespace Modules\FrontOffice\Filament\Resources\Reservations\Tables;
 
 use DomainException;
 use Filament\Actions\Action;
-use Filament\Actions\EditAction;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -112,18 +111,6 @@ final class ReservationsTable
                 self::assignRoomAction(),
                 self::checkInAction(),
 
-                EditAction::make()
-                    ->visible(
-                        fn (Reservation $record): bool =>
-                            in_array(
-                                $record->status,
-                                [
-                                    ReservationStatus::PENDING,
-                                    ReservationStatus::CONFIRMED,
-                                ],
-                                true,
-                            )
-                    ),
             ])
 
             ->defaultSort('arrival_date');

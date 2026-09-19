@@ -912,6 +912,15 @@
                         "
                     >
                         <div class="order-2 flex flex-wrap gap-2 sm:order-1">
+                            @if (in_array($reservation->status, [\Modules\FrontOffice\Enums\ReservationStatus::PENDING, \Modules\FrontOffice\Enums\ReservationStatus::CONFIRMED], true))
+                                <x-filament::button
+                                    color="gray"
+                                    wire:click="openEditReservationModal"
+                                >
+                                    Edit Reservation
+                                </x-filament::button>
+                            @endif
+
                             @if ($reservation->status === \Modules\FrontOffice\Enums\ReservationStatus::PENDING)
                                 <x-filament::button
                                     wire:click="confirmSelectedReservation"
@@ -976,6 +985,112 @@
                             Close
                         </x-filament::button>
                     </div>
+                </div>
+            </div>
+        @endif
+
+        @if ($showEditReservationModal)
+            <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                <div class="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-md bg-white shadow-2xl dark:bg-gray-900">
+                    <div class="flex items-center justify-between border-b border-gray-200 px-6 py-4 dark:border-gray-800">
+                        <h2 class="text-lg font-semibold">Edit Reservation</h2>
+                        <button type="button" wire:click="closeEditReservationModal" aria-label="Close edit reservation" class="text-gray-500 hover:text-gray-900 dark:hover:text-white">&times;</button>
+                    </div>
+
+                    <form wire:submit="updateSelectedReservation" class="space-y-5 p-6">
+                        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            <div>
+                                <label for="edit-guest" class="mb-1 block text-sm font-medium">Guest</label>
+                                <select id="edit-guest" wire:model="editGuestId" class="w-full rounded-md border-gray-300 bg-white dark:border-gray-700 dark:bg-gray-900">
+                                    <option value="">Select guest</option>
+                                    @foreach ($this->guests as $guest)
+                                        <option value="{{ $guest->id }}">{{ $guest->full_name }}</option>
+                                    @endforeach
+                                </select>
+                                @error('editGuestId') <p class="mt-1 text-sm text-danger-600">{{ $message }}</p> @enderror
+                            </div>
+
+                            <div>
+                                <label for="edit-room-type" class="mb-1 block text-sm font-medium">Room Type</label>
+                                <select id="edit-room-type" wire:model.live="editRoomTypeId" class="w-full rounded-md border-gray-300 bg-white dark:border-gray-700 dark:bg-gray-900">
+                                    <option value="">Select room type</option>
+                                    @foreach ($this->roomTypes as $roomType)
+                                        <option value="{{ $roomType->id }}">{{ $roomType->name }}</option>
+                                    @endforeach
+                                </select>
+                                @error('editRoomTypeId') <p class="mt-1 text-sm text-danger-600">{{ $message }}</p> @enderror
+                            </div>
+
+                            <div>
+                                <label for="edit-room" class="mb-1 block text-sm font-medium">Room</label>
+                                <select id="edit-room" wire:model="editRoomId" class="w-full rounded-md border-gray-300 bg-white dark:border-gray-700 dark:bg-gray-900">
+                                    <option value="">Unassigned</option>
+                                    @foreach ($this->editRooms as $room)
+                                        <option value="{{ $room->id }}">{{ $room->room_number }}</option>
+                                    @endforeach
+                                </select>
+                                @error('editRoomId') <p class="mt-1 text-sm text-danger-600">{{ $message }}</p> @enderror
+                            </div>
+
+                            <div>
+                                <label for="edit-rate" class="mb-1 block text-sm font-medium">Nightly Rate (Rp)</label>
+                                <input id="edit-rate" type="number" min="0" step="0.01" wire:model="editNightlyRate" class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900">
+                                @error('editNightlyRate') <p class="mt-1 text-sm text-danger-600">{{ $message }}</p> @enderror
+                            </div>
+
+                            <div>
+                                <label for="edit-arrival" class="mb-1 block text-sm font-medium">Arrival</label>
+                                <input id="edit-arrival" type="date" wire:model="editArrivalDate" class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900">
+                                @error('editArrivalDate') <p class="mt-1 text-sm text-danger-600">{{ $message }}</p> @enderror
+                            </div>
+
+                            <div>
+                                <label for="edit-departure" class="mb-1 block text-sm font-medium">Departure</label>
+                                <input id="edit-departure" type="date" wire:model="editDepartureDate" class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900">
+                                @error('editDepartureDate') <p class="mt-1 text-sm text-danger-600">{{ $message }}</p> @enderror
+                            </div>
+
+                            <div>
+                                <label for="edit-adults" class="mb-1 block text-sm font-medium">Adults</label>
+                                <input id="edit-adults" type="number" min="1" wire:model="editAdultCount" class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900">
+                                @error('editAdultCount') <p class="mt-1 text-sm text-danger-600">{{ $message }}</p> @enderror
+                            </div>
+
+                            <div>
+                                <label for="edit-children" class="mb-1 block text-sm font-medium">Children</label>
+                                <input id="edit-children" type="number" min="0" wire:model="editChildCount" class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900">
+                                @error('editChildCount') <p class="mt-1 text-sm text-danger-600">{{ $message }}</p> @enderror
+                            </div>
+
+                            <div class="sm:col-span-2">
+                                <label for="edit-source" class="mb-1 block text-sm font-medium">Source</label>
+                                <select id="edit-source" wire:model="editSource" class="w-full rounded-md border-gray-300 bg-white dark:border-gray-700 dark:bg-gray-900">
+                                    <option value="">None</option>
+                                    <option value="walk_in">Walk In</option>
+                                    <option value="phone">Phone</option>
+                                    <option value="website">Website</option>
+                                    <option value="ota">OTA</option>
+                                    <option value="corporate">Corporate</option>
+                                    <option value="other">Other</option>
+                                </select>
+                                @error('editSource') <p class="mt-1 text-sm text-danger-600">{{ $message }}</p> @enderror
+                            </div>
+                        </div>
+
+                        <div>
+                            <label for="edit-notes" class="mb-1 block text-sm font-medium">Notes</label>
+                            <textarea id="edit-notes" wire:model="editNotes" rows="3" class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900"></textarea>
+                            @error('editNotes') <p class="mt-1 text-sm text-danger-600">{{ $message }}</p> @enderror
+                        </div>
+
+                        <div class="flex justify-end gap-2 border-t border-gray-200 pt-4 dark:border-gray-800">
+                            <x-filament::button type="button" color="gray" wire:click="closeEditReservationModal">Cancel</x-filament::button>
+                            <x-filament::button type="submit" wire:loading.attr="disabled" wire:target="updateSelectedReservation">
+                                <span wire:loading.remove wire:target="updateSelectedReservation">Save Changes</span>
+                                <span wire:loading wire:target="updateSelectedReservation">Saving...</span>
+                            </x-filament::button>
+                        </div>
+                    </form>
                 </div>
             </div>
         @endif
