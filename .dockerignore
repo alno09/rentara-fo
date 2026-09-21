@@ -1,0 +1,16 @@
+.git
+.agents
+.codex
+.env*
+!.env.example
+node_modules
+vendor
+storage
+bootstrap/cache
+public/build
+public/hot
+public/storage
+public/css/filament
+public/fonts/filament
+public/js/filament
+.phpunit.result.cache
