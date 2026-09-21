@@ -3,15 +3,16 @@ services:
     build:
       context: .
     restart: unless-stopped
-    env_file: .env.production
+    env_file: ${APP_ENV_FILE:-.env.production}
     depends_on:
       postgres:
         condition: service_healthy
     volumes:
       - app_storage:/var/www/html/storage
+    ports:
+      - "127.0.0.1:${APP_PORT:-8080}:80"
     networks:
       - backend
-      - tunnel
 
   postgres:
     image: postgres:18
@@ -30,21 +31,9 @@ services:
     networks:
       - backend
 
-  cloudflared:
-    image: cloudflare/cloudflared:latest
-    restart: unless-stopped
-    env_file: .env.tunnel
-    command: tunnel --no-autoupdate run
-    depends_on:
-      app:
-        condition: service_healthy
-    networks:
-      - tunnel
-
 networks:
   backend:
     internal: true
-  tunnel:
 
 volumes:
   postgres_data:
