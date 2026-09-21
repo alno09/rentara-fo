@@ -20,6 +20,8 @@ return [
         'passwords' => env('AUTH_PASSWORD_BROKER', 'users'),
     ],
 
+    'filament_admin_email' => env('FILAMENT_ADMIN_EMAIL'),
+
     /*
     |--------------------------------------------------------------------------
     | Authentication Guards
